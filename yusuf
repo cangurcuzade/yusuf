@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Yusuf için Doğum Günü Runner</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin:0; height:100%; background:#0b0f14; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    #wrap { height:100%; display:flex; align-items:center; justify-content:center; padding:12px; }
+    canvas {
+      width:min(92vw, 420px);
+      height:calc(min(92vw, 420px) * 1.78);
+      background:#0b0f14;
+      border:2px solid rgba(255,255,255,.15);
+      border-radius:14px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      touch-action: manipulation;
+    }
+    /* Quiz overlay */
+    #overlay {
+      position:fixed; inset:0; display:none;
+      background:rgba(0,0,0,.55);
+      align-items:center; justify-content:center;
+      padding:18px;
+    }
+    #card {
+      width:min(520px, 92vw);
+      background:#111826;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      padding:16px;
+      box-shadow:0 16px 50px rgba(0,0,0,.5);
+    }
+    #qtitle { margin:0 0 8px; font-size:16px; opacity:.9; }
+    #qtext { margin:0 0 12px; font-size:18px; line-height:1.25; }
+    .opt {
+      width:100%;
+      text-align:left;
+      padding:12px 12px;
+      margin:8px 0;
+      background:#0e1522;
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:12px;
+      color:#eaf1ff;
+      font-size:16px;
+    }
+    .opt:active { transform:scale(.99); }
+    #hint { margin:10px 2px 0; font-size:13px; opacity:.75; }
+    #toast {
+      position:fixed; left:50%; transform:translateX(-50%);
+      bottom:18px; padding:10px 14px;
+      background:rgba(17,24,38,.92);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px; display:none;
+      font-size:14px;
+    }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="240" height="426" aria-label="Runner"></canvas>
+</div>
+
+<div id="overlay">
+  <div id="card">
+    <p id="qtitle">Quiz Kapısı</p>
+    <p id="qtext">Soru</p>
+    <button class="opt" data-i="0"></button>
+    <button class="opt" data-i="1"></button>
+    <button class="opt" data-i="2"></button>
+    <button class="opt" data-i="3"></button>
+    <p id="hint">Doğru cevap: +200 puan ve kalkan. Yanlış: -100 puan.</p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  // --- Canvas + pixel scaling is handled by CSS (image-rendering: pixelated)
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  const overlay = document.getElementById('overlay');
+  const qtext = document.getElementById('qtext');
+  const optBtns = Array.from(document.querySelectorAll('.opt'));
+  const toast = document.getElementById('toast');
+
+  const W = canvas.width, H = canvas.height;
+
+  // --- Game constants
+  const GROUND_Y = 350;
+  const GRAV = 0.55;
+  const JUMP_V = -10.2;
+
+  // --- Game state
+  let running = false;
+  let pausedForQuiz = false;
+  let t = 0;
+
+  const player = {
+    x: 44, y: GROUND_Y - 18, w: 14, h: 18,
+    vy: 0, onGround: true,
+    shield: 0, // seconds
+    blink: 0
+  };
+
+  let speed = 2.2;
+  let score = 0;
+  let best = 0;
+  let hearts = [];
+  let gifts = [];
+  let obstacles = [];
+  let gates = [];
+  let nextSpawn = 0;
+  let nextCollect = 0;
+
+  let section = 1; // 1..3
+  const sectionTargets = [0, 900, 1900]; // score thresholds
+
+  // --- Quiz setup (EDIT HERE)
+  const quizzes = [
+    {
+      q: "Yusuf'un doğum gününde en iyi loot hangisi?",
+      options: ["Kalp", "Hediye", "Altın", "Taş"],
+      correct: 1
+    },
+    {
+      q: "Bu mini oyunun teması ne?",
+      options: ["Uzay", "Kalp & Hediye", "Korku", "Araba Yarışı"],
+      correct: 1
+    },
+    {
+      q: "Finalde Yusuf'a ne diyeceğiz?",
+      options: ["Görüşürüz", "İyi geceler", "Doğum günün kutlu olsun!", "Naber"],
+      correct: 2
+    }
+  ];
+  let quizIndex = 0;
+
+  // Gates will appear around these distances (in score-ish terms)
+  const gateAtScores = [650, 1450, 2350];
+
+  // --- Helpers
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toast.style.display='none', 1100);
+  }
+
+  function reset(){
+    running = true;
+    pausedForQuiz = false;
+    t = 0;
+    speed = 2.2;
+    score = 0;
+    section = 1;
+    player.y = GROUND_Y - player.h;
+    player.vy = 0;
+    player.onGround = true;
+    player.shield = 0;
+    player.blink = 0;
+
+    hearts = [];
+    gifts = [];
+    obstacles = [];
+    gates = [];
+    nextSpawn = 60;
+    nextCollect = 40;
+    quizIndex = 0;
+
+    // create gates
+    gates = gateAtScores.map((s, i) => ({ x: W + 120 + i*420, y: GROUND_Y - 64, w: 20, h: 64, asked:false, target:s }));
+  }
+
+  function jump(){
+    if(!running) { reset(); return; }
+    if(pausedForQuiz) return;
+    if(player.onGround){
+      player.vy = JUMP_V;
+      player.onGround = false;
+    }
+  }
+
+  // Touch/click control
+  canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); jump(); });
+
+  // Prevent scroll on touch
+  document.addEventListener('touchmove', e => { if(running) e.preventDefault(); }, {passive:false});
+
+  // --- Drawing primitives (simple pixel art)
+  function drawSky(){
+    // section-based background
+    const bg = section === 1 ? "#0b0f14" : section === 2 ? "#07121c" : "#120a1a";
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,W,H);
+
+    // stars / dots
+    ctx.fillStyle = "rgba(255,255,255,.12)";
+    for(let i=0;i<24;i++){
+      const x = (i*37 + (t*0.6)) % W;
+      const y = (i*19) % 200;
+      ctx.fillRect((W - x)|0, y, 1, 1);
+    }
+  }
+
+  function drawGround(){
+    ctx.fillStyle = section === 3 ? "#2b1027" : "#0f1b2a";
+    ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
+    // grass / line
+    ctx.fillStyle = section === 3 ? "#6b1d4a" : "#1f3a55";
+    for(let x=0;x<W;x+=6){
+      ctx.fillRect(x, GROUND_Y, 3, 2);
+    }
+  }
+
+  function drawPlayer(){
+    // blink when hit
+    const visible = player.blink > 0 ? (Math.floor(t/6)%2===0) : true;
+    if(!visible) return;
+
+    // body
+    ctx.fillStyle = "#eaf1ff";
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+
+    // face pixels
+    ctx.fillStyle = "#0b0f14";
+    ctx.fillRect(player.x+3, player.y+5, 2, 2);
+    ctx.fillRect(player.x+9, player.y+5, 2, 2);
+
+    // shield aura
+    if(player.shield > 0){
+      ctx.strokeStyle = "rgba(120,255,210,.75)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(player.x-2, player.y-2, player.w+4, player.h+4);
+      ctx.lineWidth = 1;
+    }
+  }
+
+  function drawObstacle(o){
+    ctx.fillStyle = "#ff5b7a";
+    ctx.fillRect(o.x, o.y, o.w, o.h);
+    // spikes top
+    ctx.fillStyle = "#ffd1da";
+    for(let i=0;i<o.w;i+=4){
+      ctx.fillRect(o.x+i, o.y, 2, 2);
+    }
+  }
+
+  function drawHeart(h){
+    // pixel heart
+    ctx.fillStyle = "#ff3b6b";
+    const x=h.x|0, y=h.y|0;
+    ctx.fillRect(x+2,y,2,2);
+    ctx.fillRect(x+6,y,2,2);
+    ctx.fillRect(x,y+2,10,6);
+    ctx.fillRect(x+2,y+8,6,2);
+  }
+
+  function drawGift(g){
+    // pixel gift box
+    const x=g.x|0, y=g.y|0;
+    ctx.fillStyle="#ffd166";
+    ctx.fillRect(x,y,10,10);
+    ctx.fillStyle="#ef476f";
+    ctx.fillRect(x+4,y,2,10);
+    ctx.fillRect(x,y+4,10,2);
+    ctx.fillRect(x+3,y-2,4,2);
+  }
+
+  function drawGate(gt){
+    // quiz gate pillar
+    ctx.fillStyle = "#7c5cff";
+    ctx.fillRect(gt.x, gt.y, gt.w, gt.h);
+    ctx.fillStyle = "rgba(255,255,255,.25)";
+    ctx.fillRect(gt.x+4, gt.y+6, gt.w-8, 6);
+
+    // question mark
+    ctx.fillStyle="#eaf1ff";
+    ctx.fillRect(gt.x+7, gt.y+18, 6, 2);
+    ctx.fillRect(gt.x+11, gt.y+20, 2, 6);
+    ctx.fillRect(gt.x+7, gt.y+26, 4, 2);
+    ctx.fillRect(gt.x+10, gt.y+34, 2, 2);
+  }
+
+  function rectHit(a,b){
+    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+  }
+
+  // --- Quiz UI
+  function openQuiz(){
+    pausedForQuiz = true;
+    overlay.style.display = "flex";
+
+    const q = quizzes[quizIndex];
+    qtext.textContent = q.q;
+    optBtns.forEach((btn, i) => {
+      btn.textContent = (["A) ","B) ","C) ","D) "][i]) + q.options[i];
+      btn.disabled = false;
+      btn.style.opacity = "1";
+    });
+  }
+
+  function closeQuiz(){
+    overlay.style.display = "none";
+    pausedForQuiz = false;
+  }
+
+  optBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const picked = Number(btn.dataset.i);
+      const q = quizzes[quizIndex];
+
+      optBtns.forEach(b => b.disabled = true);
+
+      if(picked === q.correct){
+        score += 200;
+        player.shield = 4.0; // seconds shield
+        showToast("✅ Doğru! +200 puan • Kalkan aktif");
+      } else {
+        score = Math.max(0, score - 100);
+        showToast("❌ Yanlış! -100 puan");
+      }
+
+      quizIndex++;
+      setTimeout(closeQuiz, 550);
+    });
+  });
+
+  // --- Loop
+  function step(){
+    requestAnimationFrame(step);
+    t++;
+
+    // background
+    drawSky();
+    drawGround();
+
+    // Title / HUD
+    ctx.fillStyle = "rgba(234,241,255,.92)";
+    ctx.font = "10px system-ui";
+    ctx.fillText("Yusuf için Runner", 10, 18);
+
+    ctx.fillStyle = "rgba(234,241,255,.8)";
+    ctx.fillText("Skor: " + (score|0), 10, 34);
+    ctx.fillText("Bölüm: " + section + "/3", 10, 48);
+
+    if(!running){
+      // Start screen
+      ctx.fillStyle = "rgba(234,241,255,.95)";
+      ctx.font = "16px system-ui";
+      ctx.fillText("Dokun ve Başla", 55, 200);
+      ctx.font = "11px system-ui";
+      ctx.fillStyle = "rgba(234,241,255,.7)";
+      ctx.fillText("Zıpla • Kalp/Hediye topla • Quiz kapılarından geç", 18, 226);
+      ctx.fillText("En iyi: " + (best|0), 18, 246);
+      return;
+    }
+
+    if(pausedForQuiz){
+      // still draw player/objects frozen
+      drawPlayer();
+      obstacles.forEach(drawObstacle);
+      hearts.forEach(drawHeart);
+      gifts.forEach(drawGift);
+      gates.forEach(drawGate);
+      return;
+    }
+
+    // Difficulty & sections
+    score += 0.6;
+    speed += 0.0008; // slowly increases
+
+    if(score > sectionTargets[2]) section = 3;
+    else if(score > sectionTargets[1]) section = 2;
+    else section = 1;
+
+    // player physics
+    player.vy += GRAV;
+    player.y += player.vy;
+
+    if(player.y >= GROUND_Y - player.h){
+      player.y = GROUND_Y - player.h;
+      player.vy = 0;
+      player.onGround = true;
+    }
+
+    // shield timer
+    if(player.shield > 0) player.shield = Math.max(0, player.shield - 1/60);
+    if(player.blink > 0) player.blink = Math.max(0, player.blink - 1/60);
+
+    // spawn obstacles
+    nextSpawn--;
+    if(nextSpawn <= 0){
+      const h = rand(18, 36)|0;
+      obstacles.push({ x: W + 10, y: GROUND_Y - h, w: (rand(10, 18)|0), h });
+      nextSpawn = (rand(55, 95) / (1 + (speed-2.2)*0.25))|0;
+      nextSpawn = clamp(nextSpawn, 32, 110);
+    }
+
+    // spawn collectibles
+    nextCollect--;
+    if(nextCollect <= 0){
+      const type = Math.random() < 0.55 ? "heart" : "gift";
+      const y = (GROUND_Y - rand(70, 120))|0;
+      if(type === "heart") hearts.push({ x: W + 10, y, w:10, h:10 });
+      else gifts.push({ x: W + 10, y, w:10, h:10 });
+      nextCollect = (rand(45, 85) / (1 + (speed-2.2)*0.2))|0;
+      nextCollect = clamp(nextCollect, 30, 100);
+    }
+
+    // move & draw gates
+    const pRect = { x: player.x, y: player.y, w: player.w, h: player.h };
+
+    gates.forEach(gt => {
+      gt.x -= speed;
+      drawGate(gt);
+
+      // trigger quiz when passing
+      if(!gt.asked && quizIndex < quizzes.length && gt.x + gt.w < player.x){
+        gt.asked = true;
+        openQuiz();
+      }
+    });
+
+    // move & draw obstacles
+    for(let i=obstacles.length-1;i>=0;i--){
+      const o = obstacles[i];
+      o.x -= speed;
+      drawObstacle(o);
+      if(o.x + o.w < -20) obstacles.splice(i,1);
+
+      if(rectHit(pRect, o)){
+        if(player.shield > 0){
+          // consume shield and remove obstacle
+          player.shield = 0;
+          obstacles.splice(i,1);
+          showToast("🛡️ Kalkan engeli kırdı!");
+        } else if(player.blink <= 0){
+          // game over
+          running = false;
+          best = Math.max(best, score);
+          showToast("💥 Oyun bitti! Dokun ve tekrar başla");
+        }
+      }
+    }
+
+    // move & draw hearts
+    for(let i=hearts.length-1;i>=0;i--){
+      const h = hearts[i];
+      h.x -= speed;
+      drawHeart(h);
+      if(h.x + h.w < -20) hearts.splice(i,1);
+      if(rectHit(pRect, h)){
+        score += 60;
+        hearts.splice(i,1);
+        showToast("❤️ +60");
+      }
+    }
+
+    // move & draw gifts
+    for(let i=gifts.length-1;i>=0;i--){
+      const g = gifts[i];
+      g.x -= speed;
+      drawGift(g);
+      if(g.x + g.w < -20) gifts.splice(i,1);
+      if(rectHit(pRect, g)){
+        score += 90;
+        gifts.splice(i,1);
+        showToast("🎁 +90");
+      }
+    }
+
+    // finish condition after 3 quizzes answered and some score
+    if(quizIndex >= quizzes.length && score > 2600){
+      running = false;
+      best = Math.max(best, score);
+      // final message
+      ctx.fillStyle = "rgba(234,241,255,.95)";
+      ctx.font = "16px system-ui";
+      ctx.fillText("Doğum günün kutlu olsun Yusuf! 🎉", 14, 210);
+      ctx.font = "11px system-ui";
+      ctx.fillStyle = "rgba(234,241,255,.7)";
+      ctx.fillText("Dokun ve yeniden oyna", 62, 236);
+      return;
+    }
+
+    // draw player last
+    drawPlayer();
+  }
+
+  // Start at idle screen
+  running = false;
+  step();
+
+})();
+</script>
+</body>
+</html>
