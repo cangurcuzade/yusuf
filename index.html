@@ -297,24 +297,25 @@
     ctx.fillText("Dokun → Tekrar", 72, 214);
   }
 
-  // ---------- Spawning ----------
+  // ---------- Spawning (DÜZELTİLDİ) ----------
   function spawnObstacle(){
     const r = Math.random();
 
     if(r < 0.45){
-      // uçan kağıt
-      const w = 24, h = 18;
+      // UÇAN KAĞIT (BÜYÜTTÜM)
+      const w = 36, h = 28; // eskiden 24x18
       obstacles.push({
         img: paperImg,
         x: W + 20,
-        y: (GROUND_Y - 100 - Math.random()*40) | 0,
+        y: (GROUND_Y - 140 - Math.random()*55) | 0, // biraz daha yukarıdan gelsin
         w, h
       });
     } else {
-      // kitap (2 varyasyon)
+      // KİTAP (BÜYÜTTÜM) - 2 varyasyon
       const img = Math.random() < 0.5 ? booksImg1 : booksImg2;
-      const w = 28;
-      const h = (img === booksImg1) ? 18 : 26;
+
+      const w = 44; // eskiden 28
+      const h = (img === booksImg1) ? 28 : 40; // eskiden 18/26
 
       obstacles.push({
         img,
@@ -396,7 +397,9 @@
     player.invul = 0;
 
     nextSpawn = 40;
-    nextShield = 180 + (Math.random()*160)|0;
+
+    // KALKAN DAHA SEYREK (yaklaşık 9-15 sn)
+    nextShield = 520 + (Math.random()*360)|0;
 
     quizIndex = 0;
     closeQuiz();
@@ -471,11 +474,13 @@
       nextSpawn = clamp((base / (1 + (speed-2.8)*0.25))|0, 28, 95);
     }
 
-    // kalkan spawn
+    // kalkan spawn (DAHA SEYREK + kalkan varken spawn etme)
     nextShield--;
     if(nextShield <= 0){
-      spawnShield();
-      nextShield = 200 + (Math.random()*220)|0;
+      if(!player.shield){
+        spawnShield();
+      }
+      nextShield = 520 + (Math.random()*360)|0; // yine 9-15 sn
     }
 
     // hafif hız artışı
@@ -526,5 +531,3 @@
 </script>
 </body>
 </html>
-
-
