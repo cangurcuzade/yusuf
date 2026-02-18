@@ -19,7 +19,6 @@
       touch-action: manipulation;
     }
 
-    /* Quiz overlay */
     #overlay{
       position:fixed; inset:0; display:none;
       background:rgba(0,0,0,.60);
@@ -93,35 +92,28 @@
 
   const W = canvas.width, H = canvas.height;
 
-  // ---------- Assets ----------
-  const bgImg = new Image();
-  bgImg.src = "assets/bg_besiktas.jpg";
-
-  const finalImg = new Image();
-  finalImg.src = "assets/final_bau.jpg";
-
-  const paperImg = new Image();
-  paperImg.src = "assets/paper.png";
-
-  const booksImg = new Image();
-  booksImg.src = "assets/books.png";
-
-  const shieldImg = new Image();
-  shieldImg.src = "assets/shield.png";
+  // ---------- Assets (SENİN DOSYA ADLARIN) ----------
+  const bgImg = new Image();     bgImg.src = "assets/bg_loop.png";
+  const finalImg = new Image();  finalImg.src = "assets/final.png";
+  const paperImg = new Image();  paperImg.src = "assets/paper.png";
+  const booksImg1 = new Image(); booksImg1.src = "assets/books2.png";
+  const booksImg2 = new Image(); booksImg2.src = "assets/books3.png";
+  const shieldImg = new Image(); shieldImg.src = "assets/shield.png";
 
   function ready(img){ return img && img.complete && img.naturalWidth > 0; }
 
   // ---------- Game constants ----------
-  const GROUND_Y = 360;         // zemin çizgisi
+  const GROUND_Y = 360;
   const GRAV = 0.55;
   const JUMP_V = -10.2;
 
   // ---------- State ----------
   let state = "start"; // start | run | quiz | final | gameover
   let t = 0;
-  let speed = 2.6;
+  let speed = 2.8;
 
-  let bgX = 0; // loop offset
+  // background loop offset
+  let bgX = 0;
 
   const player = {
     x: 44, y: GROUND_Y - 18,
@@ -133,18 +125,19 @@
 
   let obstacles = [];
   let nextSpawn = 40;
-  let shieldDrops = [];
-  let nextShield = 240; // yaklaşık her 4 sn-8 sn arası değişecek
-  let elapsed = 0; // saniye
 
-  // Bölüm 1 süresi
+  let shieldDrops = [];
+  let nextShield = 200;
+
+  let elapsed = 0;
+
   const LEVEL_SECONDS = 45;
 
   // Quiz
   const quizzes = [
-    { q:"Yusuf’un bu oyunda hedefi ne?", options:["Koşmak","Üniversiteye ulaşmak","Balık tutmak","Uyumak"], correct:1 },
+    { q:"Yusuf’un bu bölümde hedefi ne?", options:["Koşmak","Üniversiteye ulaşmak","Balık tutmak","Uyumak"], correct:1 },
     { q:"Bölüm 1 nerede geçiyor?", options:["Kadıköy","Beşiktaş","Ankara","İzmir"], correct:1 },
-    { q:"Sonunda ne oluyor?", options:["Kaybediyor","Mezun oluyor","Uçuyor","Kayboluyor"], correct:1 },
+    { q:"Finalde ne oluyor?", options:["Kaybediyor","Mezun oluyor","Uçuyor","Kayboluyor"], correct:1 },
   ];
   let quizIndex = 0;
 
@@ -174,7 +167,7 @@
   canvas.addEventListener('pointerdown', (e)=>{ e.preventDefault(); jump(); });
   document.addEventListener('touchmove', e => { if(state==="run") e.preventDefault(); }, {passive:false});
 
-  // ---------- Background: FULL HEIGHT + LOOP (no black gaps) ----------
+  // ---------- Background: FULL HEIGHT + LOOP ----------
   function drawLoopBackgroundCover(img, parallaxSpeed){
     if(!ready(img)) {
       ctx.fillStyle = "#000";
@@ -182,7 +175,8 @@
       return;
     }
 
-    const scale = H / img.height;       // tavan-tabana değsin
+    // tavan-tabana değsin
+    const scale = H / img.height;
     const drawW = img.width * scale;
     const drawH = H;
 
@@ -190,7 +184,7 @@
     bgX = bgX % drawW;
     if(bgX > 0) bgX -= drawW;
 
-    // yan yana bas, boşluk kalmasın
+    // yan yana bas
     for(let x = bgX; x < W + drawW; x += drawW){
       ctx.drawImage(img, x, 0, drawW, drawH);
     }
@@ -213,14 +207,12 @@
   }
 
   function drawGroundLine(){
-    // istersen görünmez yap, şimdilik hafif çizgi
     ctx.fillStyle = "rgba(0,0,0,.22)";
     ctx.fillRect(0, GROUND_Y, W, 2);
   }
 
   function drawPlayer(){
-    // Şimdilik placeholder (karakter sprite sabah gelecek)
-    // küçük beyaz adam
+    // Placeholder karakter (sabah sprite takacağız)
     if(player.invul > 0 && Math.floor(t/6)%2===0) return;
 
     ctx.fillStyle = "#eaf1ff";
@@ -229,7 +221,6 @@
     ctx.fillRect(player.x+3, player.y+5, 2, 2);
     ctx.fillRect(player.x+9, player.y+5, 2, 2);
 
-    // kalkan aura
     if(player.shield){
       ctx.strokeStyle = "rgba(120,255,210,.9)";
       ctx.lineWidth = 2;
@@ -239,13 +230,10 @@
   }
 
   function drawObstacle(o){
-    // sprite varsa çiz, yoksa blok
-    if(o.type === "paper" && ready(paperImg)){
-      ctx.drawImage(paperImg, o.x, o.y, o.w, o.h);
-    } else if(o.type === "books" && ready(booksImg)){
-      ctx.drawImage(booksImg, o.x, o.y, o.w, o.h);
+    if(o.img && ready(o.img)){
+      ctx.drawImage(o.img, o.x, o.y, o.w, o.h);
     } else {
-      ctx.fillStyle = o.type==="paper" ? "#fff" : "#ff5b7a";
+      ctx.fillStyle = "#ff5b7a";
       ctx.fillRect(o.x, o.y, o.w, o.h);
     }
   }
@@ -260,12 +248,11 @@
   }
 
   function drawFinal(){
-    // Final sahne: cover (tavan-tabana değsin)
     if(ready(finalImg)){
       const scale = H / finalImg.height;
       const drawW = finalImg.width * scale;
       const drawH = H;
-      const x = (W - drawW) / 2; // ortala, yanlardan taşarsa crop olur
+      const x = (W - drawW) / 2;
       ctx.drawImage(finalImg, x, 0, drawW, drawH);
     } else {
       ctx.fillStyle="#000";
@@ -281,12 +268,13 @@
     ctx.font="12px system-ui";
     ctx.fillText("Bölüm 1 Tamamlandı!", 10, 18);
     ctx.font="10px system-ui";
-    ctx.fillText("Dokun → Devam (yakında Bölüm 2)", 10, 34);
+    ctx.fillText("Dokun → Devam", 10, 34);
   }
 
   function drawStart(){
-    drawLoopBackgroundCover(bgImg, 0); // sabit
+    drawLoopBackgroundCover(bgImg, 0);
     drawGroundLine();
+
     ctx.fillStyle="rgba(0,0,0,.35)";
     ctx.fillRect(0, 0, W, H);
 
@@ -312,40 +300,38 @@
   // ---------- Spawning ----------
   function spawnObstacle(){
     const r = Math.random();
+
     if(r < 0.45){
       // uçan kağıt
-      const w = 22, h = 16;
+      const w = 24, h = 18;
       obstacles.push({
-        type:"paper",
+        img: paperImg,
         x: W + 20,
-        y: (GROUND_Y - 90 - rand(0,35)) | 0,
-        w, h,
-        vx: speed
+        y: (GROUND_Y - 100 - Math.random()*40) | 0,
+        w, h
       });
     } else {
-      // kitap yığını (yükseklik varyasyon)
-      const tier = (Math.random() < 0.55) ? 1 : 2; // 1 ya da 2 kat
-      const w = 26;
-      const h = tier === 1 ? 16 : 26;
+      // kitap (2 varyasyon)
+      const img = Math.random() < 0.5 ? booksImg1 : booksImg2;
+      const w = 28;
+      const h = (img === booksImg1) ? 18 : 26;
+
       obstacles.push({
-        type:"books",
+        img,
         x: W + 20,
         y: GROUND_Y - h,
-        w, h,
-        vx: speed
+        w, h
       });
     }
   }
 
   function spawnShield(){
-    // oyuncunun zıplayarak alacağı yükseklikte
     const size = 22;
     shieldDrops.push({
       x: W + 20,
-      y: (GROUND_Y - 90 - rand(0,25)) | 0,
+      y: (GROUND_Y - 95 - rand(0,25)) | 0,
       w: size,
-      h: size,
-      vx: speed * 0.7
+      h: size
     });
   }
 
@@ -373,12 +359,7 @@
 
       optBtns.forEach(b=> b.disabled = true);
 
-      if(picked === q.correct){
-        showToast("✅ Doğru");
-      } else {
-        showToast("❌ Yanlış");
-      }
-
+      showToast(picked === q.correct ? "✅ Doğru" : "❌ Yanlış");
       quizIndex++;
 
       setTimeout(()=>{
@@ -403,8 +384,8 @@
     t = 0;
     elapsed = 0;
     speed = 2.8;
-
     bgX = 0;
+
     obstacles = [];
     shieldDrops = [];
 
@@ -415,20 +396,19 @@
     player.invul = 0;
 
     nextSpawn = 40;
-    nextShield = 180 + (Math.random()*160)|0; // 3-6 sn arası
+    nextShield = 180 + (Math.random()*160)|0;
 
     quizIndex = 0;
     closeQuiz();
     showToast("🏁 Başla!");
   }
 
-  // Final ekranında dokununca şimdilik tekrar başlatıyoruz (Bölüm 2 gelince değiştirirsin)
   function handleFinalTouch(){
-    // Şimdilik tekrar başa dön
+    // şimdilik başa dön (bölüm2 gelince değiştiririz)
     state = "start";
   }
   canvas.addEventListener('pointerdown', ()=>{
-    if(state === "final"){ handleFinalTouch(); }
+    if(state === "final") handleFinalTouch();
   });
 
   // ---------- Main loop ----------
@@ -446,13 +426,12 @@
       return;
     }
 
-    // RUN / GAMEOVER / QUIZ arka planı
-    drawLoopBackgroundCover(bgImg, (state==="run" ? speed*0.35 : 0)); // istediğin loop
+    // RUN / QUIZ / GAMEOVER arka plan
+    drawLoopBackgroundCover(bgImg, (state==="run" ? speed*0.35 : 0));
     drawGroundLine();
     drawHUD();
 
     if(state === "quiz"){
-      // quizde oyun donsun, sadece sahneyi göster
       drawPlayer();
       obstacles.forEach(drawObstacle);
       shieldDrops.forEach(drawShieldDrop);
@@ -470,7 +449,6 @@
     // ---------- RUN ----------
     elapsed += 1/60;
 
-    // süre dolduysa: quiz'e geç
     if(elapsed >= LEVEL_SECONDS){
       openQuiz();
       return;
@@ -479,37 +457,33 @@
     // fizik
     player.vy += GRAV;
     player.y += player.vy;
-
     if(player.y >= GROUND_Y - player.h){
       player.y = GROUND_Y - player.h;
       player.vy = 0;
       player.onGround = true;
     }
 
-    if(player.invul > 0) player.invul = Math.max(0, player.invul - 1/60);
-
-    // spawn engel
+    // engel spawn
     nextSpawn--;
     if(nextSpawn <= 0){
       spawnObstacle();
-      // spawn aralığı: hızlandıkça sıklaşsın
-      let base = rand(45, 85);
+      const base = rand(45, 85);
       nextSpawn = clamp((base / (1 + (speed-2.8)*0.25))|0, 28, 95);
     }
 
-    // spawn kalkan
+    // kalkan spawn
     nextShield--;
     if(nextShield <= 0){
       spawnShield();
-      nextShield = 200 + (Math.random()*220)|0; // 3-7 sn arası
+      nextShield = 200 + (Math.random()*220)|0;
     }
 
-    // hız çok az artsın
+    // hafif hız artışı
     speed += 0.0009;
 
     const pRect = { x: player.x, y: player.y, w: player.w, h: player.h };
 
-    // engeller hareket + çarpışma
+    // engeller
     for(let i=obstacles.length-1; i>=0; i--){
       const o = obstacles[i];
       o.x -= speed;
@@ -522,14 +496,14 @@
           player.shield = false;
           obstacles.splice(i,1);
           showToast("🛡 Kalkan kırıldı!");
-        } else if(player.invul <= 0){
+        } else {
           state = "gameover";
           showToast("💥 Çarptın");
         }
       }
     }
 
-    // kalkan drop hareket + alma
+    // kalkanlar
     for(let i=shieldDrops.length-1; i>=0; i--){
       const s = shieldDrops[i];
       s.x -= speed * 0.75;
@@ -544,7 +518,6 @@
       }
     }
 
-    // çiz oyuncu (en üstte)
     drawPlayer();
   }
 
@@ -553,4 +526,5 @@
 </script>
 </body>
 </html>
+
 
