@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Yusuf Runner — Bölüm 1</title>
+  <title>Yusuf Runner - Bölüm 1</title>
   <style>
     :root { color-scheme: dark; }
     html, body { margin:0; height:100%; background:#0b0f14; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
@@ -11,16 +11,18 @@
     canvas{
       width:min(92vw, 420px);
       height:calc(min(92vw, 420px) * 1.78);
-      border:2px solid rgba(255,255,255,.14);
+      background:#000;
+      border:2px solid rgba(255,255,255,.12);
       border-radius:14px;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       touch-action: manipulation;
-      background:#0b0f14;
     }
+
+    /* Quiz overlay */
     #overlay{
       position:fixed; inset:0; display:none;
-      background:rgba(0,0,0,.55);
+      background:rgba(0,0,0,.60);
       align-items:center; justify-content:center;
       padding:18px;
     }
@@ -32,12 +34,12 @@
       padding:16px;
       box-shadow:0 16px 50px rgba(0,0,0,.5);
     }
-    #qtitle{ margin:0 0 8px; font-size:14px; opacity:.85; }
+    #qtitle{ margin:0 0 8px; font-size:16px; opacity:.9; }
     #qtext{ margin:0 0 12px; font-size:18px; line-height:1.25; }
     .opt{
       width:100%;
       text-align:left;
-      padding:12px 12px;
+      padding:12px;
       margin:8px 0;
       background:#0e1522;
       border:1px solid rgba(255,255,255,.14);
@@ -45,7 +47,8 @@
       color:#eaf1ff;
       font-size:16px;
     }
-    .opt:active{ transform:scale(.99); }
+    #hint{ margin:10px 2px 0; font-size:13px; opacity:.75; }
+
     #toast{
       position:fixed; left:50%; transform:translateX(-50%);
       bottom:18px; padding:10px 14px;
@@ -53,14 +56,8 @@
       border:1px solid rgba(255,255,255,.12);
       border-radius:999px; display:none;
       font-size:14px;
-    }
-    #tip{
-      position:fixed; top:14px; left:50%; transform:translateX(-50%);
-      color:rgba(234,241,255,.85);
-      font-size:13px; padding:6px 10px;
-      background:rgba(0,0,0,.35);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:999px;
+      max-width:92vw;
+      text-align:center;
     }
   </style>
 </head>
@@ -71,428 +68,487 @@
 
 <div id="overlay">
   <div id="card">
-    <p id="qtitle">Bölüm Arası Quiz</p>
+    <p id="qtitle">Quiz</p>
     <p id="qtext">Soru</p>
     <button class="opt" data-i="0"></button>
     <button class="opt" data-i="1"></button>
     <button class="opt" data-i="2"></button>
     <button class="opt" data-i="3"></button>
+    <p id="hint">3 soru var. Bitince final ekranına geçeceksin.</p>
   </div>
 </div>
 
 <div id="toast"></div>
-<div id="tip">Dokun = Zıpla</div>
 
 <script>
 (() => {
-  const canvas = document.getElementById("c");
-  const ctx = canvas.getContext("2d");
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
-  const overlay = document.getElementById("overlay");
-  const qtext = document.getElementById("qtext");
-  const optBtns = Array.from(document.querySelectorAll(".opt"));
-  const toast = document.getElementById("toast");
+  const overlay = document.getElementById('overlay');
+  const qtext = document.getElementById('qtext');
+  const optBtns = Array.from(document.querySelectorAll('.opt'));
+  const toast = document.getElementById('toast');
 
   const W = canvas.width, H = canvas.height;
-  const GROUND_Y = 350;
 
-  // --- ASSET PATHS (repo'da /assets içine koy)
-  const ASSETS = {
-    bg: "assets/bg_loop.png",
-    final: "assets/final.png",
-    paper: "assets/paper.png",
-    books2: "assets/books2.png",
-    books3: "assets/books3.png",
-    shield: "assets/shield.png",
+  // ---------- Assets ----------
+  const bgImg = new Image();
+  bgImg.src = "assets/bg_besiktas.jpg";
+
+  const finalImg = new Image();
+  finalImg.src = "assets/final_bau.jpg";
+
+  const paperImg = new Image();
+  paperImg.src = "assets/paper.png";
+
+  const booksImg = new Image();
+  booksImg.src = "assets/books.png";
+
+  const shieldImg = new Image();
+  shieldImg.src = "assets/shield.png";
+
+  function ready(img){ return img && img.complete && img.naturalWidth > 0; }
+
+  // ---------- Game constants ----------
+  const GROUND_Y = 360;         // zemin çizgisi
+  const GRAV = 0.55;
+  const JUMP_V = -10.2;
+
+  // ---------- State ----------
+  let state = "start"; // start | run | quiz | final | gameover
+  let t = 0;
+  let speed = 2.6;
+
+  let bgX = 0; // loop offset
+
+  const player = {
+    x: 44, y: GROUND_Y - 18,
+    w: 14, h: 18,
+    vy: 0, onGround: true,
+    shield: false,
+    invul: 0
   };
 
-  function loadImage(src){
-    return new Promise((res, rej) => {
-      const im = new Image();
-      im.onload = () => res(im);
-      im.onerror = rej;
-      im.src = src;
-    });
-  }
+  let obstacles = [];
+  let nextSpawn = 40;
+  let shieldDrops = [];
+  let nextShield = 240; // yaklaşık her 4 sn-8 sn arası değişecek
+  let elapsed = 0; // saniye
+
+  // Bölüm 1 süresi
+  const LEVEL_SECONDS = 45;
+
+  // Quiz
+  const quizzes = [
+    { q:"Yusuf’un bu oyunda hedefi ne?", options:["Koşmak","Üniversiteye ulaşmak","Balık tutmak","Uyumak"], correct:1 },
+    { q:"Bölüm 1 nerede geçiyor?", options:["Kadıköy","Beşiktaş","Ankara","İzmir"], correct:1 },
+    { q:"Sonunda ne oluyor?", options:["Kaybediyor","Mezun oluyor","Uçuyor","Kayboluyor"], correct:1 },
+  ];
+  let quizIndex = 0;
+
+  // ---------- Utils ----------
+  function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function rectHit(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
 
   function showToast(msg){
     toast.textContent = msg;
-    toast.style.display = "block";
+    toast.style.display = 'block';
     clearTimeout(showToast._t);
-    showToast._t = setTimeout(()=> toast.style.display="none", 1100);
+    showToast._t = setTimeout(()=> toast.style.display='none', 900);
   }
 
-  // --- Quiz (şimdilik Bölüm 1 için 1 soru; istersen değiştir)
-  const quiz = {
-    q: "Bölüm 1 tamam! Sıradaki hedef ne?",
-    options: ["Okul", "Sahil", "Market", "Uzay"],
-    correct: 1
-  };
-
-  let running = false;
-  let pausedForQuiz = false;
-  let showingFinal = false;
-
-  let t = 0;
-  let timeLeft = 45.0; // bölüm süresi (sn)
-  let speed = 2.25;
-
-  const player = {
-    x: 40, y: GROUND_Y - 18,
-    w: 14, h: 18,
-    vy: 0,
-    onGround: true,
-    hasShield: false,
-  };
-
-  // world
-  let bgX = 0;
-
-  let obstacles = [];
-  let shields = [];
-  let spawnTimer = 0;
-  let shieldTimer = 6.5; // ilk kalkan biraz geç gelsin
-
-  // images
-  let IM = {};
-
-  function rectHit(a,b){
-    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
-  }
-
-  function reset(){
-    running = true;
-    pausedForQuiz = false;
-    showingFinal = false;
-    t = 0;
-    timeLeft = 45.0;
-    speed = 2.25;
-    bgX = 0;
-
-    player.y = GROUND_Y - player.h;
-    player.vy = 0;
-    player.onGround = true;
-    player.hasShield = false;
-
-    obstacles = [];
-    shields = [];
-    spawnTimer = 0;
-    shieldTimer = 6.5;
-  }
-
+  // ---------- Controls ----------
   function jump(){
-    if(!running){ reset(); return; }
-    if(pausedForQuiz || showingFinal) return;
+    if(state === "start"){ startGame(); return; }
+    if(state === "gameover"){ startGame(); return; }
+    if(state !== "run") return;
+
     if(player.onGround){
-      player.vy = -10.2;
+      player.vy = JUMP_V;
       player.onGround = false;
     }
   }
+  canvas.addEventListener('pointerdown', (e)=>{ e.preventDefault(); jump(); });
+  document.addEventListener('touchmove', e => { if(state==="run") e.preventDefault(); }, {passive:false});
 
-  canvas.addEventListener("pointerdown", (e)=>{ e.preventDefault(); jump(); });
-  document.addEventListener("touchmove", e => { if(running) e.preventDefault(); }, {passive:false});
+  // ---------- Background: FULL HEIGHT + LOOP (no black gaps) ----------
+  function drawLoopBackgroundCover(img, parallaxSpeed){
+    if(!ready(img)) {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0,0,W,H);
+      return;
+    }
 
-  function openQuiz(){
-    pausedForQuiz = true;
-    overlay.style.display = "flex";
-    qtext.textContent = quiz.q;
-    optBtns.forEach((btn,i)=>{
-      btn.disabled = false;
-      btn.style.opacity = "1";
-      btn.textContent = (["A) ","B) ","C) ","D) "][i]) + quiz.options[i];
-    });
+    const scale = H / img.height;       // tavan-tabana değsin
+    const drawW = img.width * scale;
+    const drawH = H;
+
+    bgX -= parallaxSpeed;
+    bgX = bgX % drawW;
+    if(bgX > 0) bgX -= drawW;
+
+    // yan yana bas, boşluk kalmasın
+    for(let x = bgX; x < W + drawW; x += drawW){
+      ctx.drawImage(img, x, 0, drawW, drawH);
+    }
   }
 
-  function closeQuiz(){
-    overlay.style.display = "none";
-    pausedForQuiz = false;
-    // quiz bitti -> final göster
-    showingFinal = true;
-    finalTimer = 4.0;
+  // ---------- Drawing ----------
+  function drawHUD(){
+    ctx.fillStyle = "rgba(234,241,255,.92)";
+    ctx.font = "10px system-ui";
+    ctx.fillText("Dokun = Zıpla", 10, 16);
+
+    ctx.fillStyle = "rgba(234,241,255,.85)";
+    ctx.fillText("Bölüm 1 — Beşiktaş", 10, 34);
+
+    if(state === "run"){
+      ctx.fillStyle = "rgba(234,241,255,.80)";
+      ctx.fillText("Süre: " + Math.max(0, Math.ceil(LEVEL_SECONDS - elapsed)) + "sn", 10, 50);
+      ctx.fillText("Kalkan: " + (player.shield ? "VAR" : "YOK"), 10, 64);
+    }
   }
 
-  optBtns.forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const picked = Number(btn.dataset.i);
-      optBtns.forEach(b=> b.disabled = true);
-
-      if(picked === quiz.correct){
-        showToast("✅ Doğru!");
-      }else{
-        showToast("❌ Yanlış!");
-      }
-      setTimeout(closeQuiz, 450);
-    });
-  });
-
-  let finalTimer = 0;
+  function drawGroundLine(){
+    // istersen görünmez yap, şimdilik hafif çizgi
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.fillRect(0, GROUND_Y, W, 2);
+  }
 
   function drawPlayer(){
-    // karakter gelene kadar placeholder
+    // Şimdilik placeholder (karakter sprite sabah gelecek)
+    // küçük beyaz adam
+    if(player.invul > 0 && Math.floor(t/6)%2===0) return;
+
     ctx.fillStyle = "#eaf1ff";
     ctx.fillRect(player.x, player.y, player.w, player.h);
     ctx.fillStyle = "#0b0f14";
     ctx.fillRect(player.x+3, player.y+5, 2, 2);
     ctx.fillRect(player.x+9, player.y+5, 2, 2);
 
-    if(player.hasShield){
-      ctx.strokeStyle = "rgba(120,255,210,.75)";
+    // kalkan aura
+    if(player.shield){
+      ctx.strokeStyle = "rgba(120,255,210,.9)";
       ctx.lineWidth = 2;
       ctx.strokeRect(player.x-2, player.y-2, player.w+4, player.h+4);
       ctx.lineWidth = 1;
     }
   }
 
-  function drawHUD(){
-    ctx.fillStyle = "rgba(234,241,255,.9)";
-    ctx.font = "10px system-ui";
-    ctx.fillText("Bölüm 1 — Beşiktaş", 10, 16);
-    ctx.fillStyle = "rgba(234,241,255,.75)";
-    ctx.fillText("Süre: " + Math.ceil(timeLeft) + "s", 10, 32);
-    ctx.fillText("Kalkan: " + (player.hasShield ? "Var" : "Yok"), 10, 46);
+  function drawObstacle(o){
+    // sprite varsa çiz, yoksa blok
+    if(o.type === "paper" && ready(paperImg)){
+      ctx.drawImage(paperImg, o.x, o.y, o.w, o.h);
+    } else if(o.type === "books" && ready(booksImg)){
+      ctx.drawImage(booksImg, o.x, o.y, o.w, o.h);
+    } else {
+      ctx.fillStyle = o.type==="paper" ? "#fff" : "#ff5b7a";
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+    }
   }
 
+  function drawShieldDrop(s){
+    if(ready(shieldImg)){
+      ctx.drawImage(shieldImg, s.x, s.y, s.w, s.h);
+    } else {
+      ctx.fillStyle="#5bd6ff";
+      ctx.fillRect(s.x, s.y, s.w, s.h);
+    }
+  }
+
+  function drawFinal(){
+    // Final sahne: cover (tavan-tabana değsin)
+    if(ready(finalImg)){
+      const scale = H / finalImg.height;
+      const drawW = finalImg.width * scale;
+      const drawH = H;
+      const x = (W - drawW) / 2; // ortala, yanlardan taşarsa crop olur
+      ctx.drawImage(finalImg, x, 0, drawW, drawH);
+    } else {
+      ctx.fillStyle="#000";
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#fff";
+      ctx.font="16px system-ui";
+      ctx.fillText("FINAL YÜKLENİYOR...", 40, 210);
+    }
+
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.fillRect(0, 0, W, 42);
+    ctx.fillStyle="#eaf1ff";
+    ctx.font="12px system-ui";
+    ctx.fillText("Bölüm 1 Tamamlandı!", 10, 18);
+    ctx.font="10px system-ui";
+    ctx.fillText("Dokun → Devam (yakında Bölüm 2)", 10, 34);
+  }
+
+  function drawStart(){
+    drawLoopBackgroundCover(bgImg, 0); // sabit
+    drawGroundLine();
+    ctx.fillStyle="rgba(0,0,0,.35)";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle="#eaf1ff";
+    ctx.font="16px system-ui";
+    ctx.fillText("Dokun ve Başla", 55, 200);
+    ctx.font="11px system-ui";
+    ctx.fillStyle="rgba(234,241,255,.8)";
+    ctx.fillText("Engeller: Kağıt + Kitap", 56, 224);
+    ctx.fillText("Kalkan: 1 çarpma affeder", 44, 242);
+  }
+
+  function drawGameOver(){
+    ctx.fillStyle="rgba(0,0,0,.55)";
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#eaf1ff";
+    ctx.font="16px system-ui";
+    ctx.fillText("ÇARPTIN!", 86, 190);
+    ctx.font="11px system-ui";
+    ctx.fillText("Dokun → Tekrar", 72, 214);
+  }
+
+  // ---------- Spawning ----------
   function spawnObstacle(){
-    // books (zemin) veya paper (uçan)
     const r = Math.random();
-    if(r < 0.65){
-      const use3 = Math.random() < 0.45;
-      const img = use3 ? IM.books3 : IM.books2;
-      const scale = 1.0;
-      const w = img.width * scale;
-      const h = img.height * scale;
-      obstacles.push({
-        type:"books",
-        img, scale,
-        x: W + 10,
-        y: GROUND_Y - h,
-        w, h
-      });
-    }else{
-      const img = IM.paper;
-      const scale = 1.0;
-      const w = img.width * scale;
-      const h = img.height * scale;
-      const y = 210 + Math.random()*70; // havada
+    if(r < 0.45){
+      // uçan kağıt
+      const w = 22, h = 16;
       obstacles.push({
         type:"paper",
-        img, scale,
-        x: W + 10,
-        y: y,
-        w, h
+        x: W + 20,
+        y: (GROUND_Y - 90 - rand(0,35)) | 0,
+        w, h,
+        vx: speed
+      });
+    } else {
+      // kitap yığını (yükseklik varyasyon)
+      const tier = (Math.random() < 0.55) ? 1 : 2; // 1 ya da 2 kat
+      const w = 26;
+      const h = tier === 1 ? 16 : 26;
+      obstacles.push({
+        type:"books",
+        x: W + 20,
+        y: GROUND_Y - h,
+        w, h,
+        vx: speed
       });
     }
   }
 
   function spawnShield(){
-    const img = IM.shield;
-    const scale = 0.9;
-    const w = img.width * scale;
-    const h = img.height * scale;
-    const y = 230 + Math.random()*70;
-    shields.push({ x: W + 10, y, w, h, img, scale });
+    // oyuncunun zıplayarak alacağı yükseklikte
+    const size = 22;
+    shieldDrops.push({
+      x: W + 20,
+      y: (GROUND_Y - 90 - rand(0,25)) | 0,
+      w: size,
+      h: size,
+      vx: speed * 0.7
+    });
   }
 
-  function drawImage(im, x, y, scale=1){
-    ctx.drawImage(im, x|0, y|0, (im.width*scale)|0, (im.height*scale)|0);
+  // ---------- Quiz ----------
+  function openQuiz(){
+    state = "quiz";
+    overlay.style.display = "flex";
+
+    const q = quizzes[quizIndex];
+    qtext.textContent = q.q;
+    optBtns.forEach((btn,i)=>{
+      btn.disabled = false;
+      btn.textContent = (["A) ","B) ","C) ","D) "][i]) + q.options[i];
+    });
   }
 
-  function loop(){
-    requestAnimationFrame(loop);
+  function closeQuiz(){
+    overlay.style.display = "none";
+  }
+
+  optBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const picked = Number(btn.dataset.i);
+      const q = quizzes[quizIndex];
+
+      optBtns.forEach(b=> b.disabled = true);
+
+      if(picked === q.correct){
+        showToast("✅ Doğru");
+      } else {
+        showToast("❌ Yanlış");
+      }
+
+      quizIndex++;
+
+      setTimeout(()=>{
+        if(quizIndex >= quizzes.length){
+          closeQuiz();
+          state = "final";
+        } else {
+          const nq = quizzes[quizIndex];
+          qtext.textContent = nq.q;
+          optBtns.forEach((b,i)=>{
+            b.disabled = false;
+            b.textContent = (["A) ","B) ","C) ","D) "][i]) + nq.options[i];
+          });
+        }
+      }, 450);
+    });
+  });
+
+  // ---------- Game flow ----------
+  function startGame(){
+    state = "run";
+    t = 0;
+    elapsed = 0;
+    speed = 2.8;
+
+    bgX = 0;
+    obstacles = [];
+    shieldDrops = [];
+
+    player.y = GROUND_Y - player.h;
+    player.vy = 0;
+    player.onGround = true;
+    player.shield = false;
+    player.invul = 0;
+
+    nextSpawn = 40;
+    nextShield = 180 + (Math.random()*160)|0; // 3-6 sn arası
+
+    quizIndex = 0;
+    closeQuiz();
+    showToast("🏁 Başla!");
+  }
+
+  // Final ekranında dokununca şimdilik tekrar başlatıyoruz (Bölüm 2 gelince değiştirirsin)
+  function handleFinalTouch(){
+    // Şimdilik tekrar başa dön
+    state = "start";
+  }
+  canvas.addEventListener('pointerdown', ()=>{
+    if(state === "final"){ handleFinalTouch(); }
+  });
+
+  // ---------- Main loop ----------
+  function step(){
+    requestAnimationFrame(step);
     t++;
 
-    // clear
-    ctx.clearRect(0,0,W,H);
-
-    if(!running){
-      // start screen
-      ctx.fillStyle = "#0b0f14";
-      ctx.fillRect(0,0,W,H);
-      ctx.fillStyle = "rgba(234,241,255,.95)";
-      ctx.font = "16px system-ui";
-      ctx.fillText("Dokun ve Başla", 55, 210);
-      ctx.font = "11px system-ui";
-      ctx.fillStyle = "rgba(234,241,255,.7)";
-      ctx.fillText("Engeller: Kağıt & Kitap", 56, 235);
-      ctx.fillText("Kalkan al, 1 çarpma affeder", 36, 252);
+    if(state === "start"){
+      drawStart();
       return;
     }
 
-    // FINAL SCREEN
-    if(showingFinal){
-      drawImage(IM.final, 0, 0, 1);
-      // basit kutlama yazısı
-      ctx.fillStyle = "rgba(0,0,0,.35)";
-      ctx.fillRect(18, 360, 204, 40);
-      ctx.fillStyle = "rgba(234,241,255,.95)";
-      ctx.font = "14px system-ui";
-      ctx.fillText("Bölüm 1 Tamam!", 58, 385);
-
-      finalTimer -= 1/60;
-      if(finalTimer <= 0){
-        // şimdilik yeniden başlat (bölüm 2 gelince burası değişecek)
-        running = false;
-        showingFinal = false;
-        showToast("🎉 Bitti! (Bölüm 2'yi ekleyince devam edeceğiz)");
-      }
+    if(state === "final"){
+      drawFinal();
       return;
     }
 
-    // pause for quiz
-    if(pausedForQuiz){
-      // arka plan + son kareyi tutmak için basit çiz
-      drawImage(IM.bg, bgX, 0, 1);
-      drawImage(IM.bg, bgX + 480, 0, 1);
-      // zemin bandı
-      ctx.fillStyle = "rgba(0,0,0,.25)";
-      ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
-      drawHUD();
+    // RUN / GAMEOVER / QUIZ arka planı
+    drawLoopBackgroundCover(bgImg, (state==="run" ? speed*0.35 : 0)); // istediğin loop
+    drawGroundLine();
+    drawHUD();
+
+    if(state === "quiz"){
+      // quizde oyun donsun, sadece sahneyi göster
       drawPlayer();
-      obstacles.forEach(o => drawImage(o.img, o.x, o.y, o.scale));
-      shields.forEach(s => drawImage(s.img, s.x, s.y, s.scale));
+      obstacles.forEach(drawObstacle);
+      shieldDrops.forEach(drawShieldDrop);
       return;
     }
 
-    // dt
-    const dt = 1/60;
+    if(state === "gameover"){
+      drawPlayer();
+      obstacles.forEach(drawObstacle);
+      shieldDrops.forEach(drawShieldDrop);
+      drawGameOver();
+      return;
+    }
 
-    // time
-    timeLeft -= dt;
-    if(timeLeft <= 0){
-      timeLeft = 0;
+    // ---------- RUN ----------
+    elapsed += 1/60;
+
+    // süre dolduysa: quiz'e geç
+    if(elapsed >= LEVEL_SECONDS){
       openQuiz();
       return;
     }
 
-    // background scroll (480 genişlik)
-    bgX -= speed*0.35;
-    if(bgX <= -480) bgX += 480;
-    drawImage(IM.bg, bgX, 0, 1);
-    drawImage(IM.bg, bgX + 480, 0, 1);
-
-    // ground overlay
-    ctx.fillStyle = "rgba(0,0,0,.18)";
-    ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
-
-    // player physics
-    player.vy += 0.55;
+    // fizik
+    player.vy += GRAV;
     player.y += player.vy;
+
     if(player.y >= GROUND_Y - player.h){
       player.y = GROUND_Y - player.h;
       player.vy = 0;
       player.onGround = true;
     }
 
-    // spawn obstacles
-    spawnTimer -= dt;
-    if(spawnTimer <= 0){
+    if(player.invul > 0) player.invul = Math.max(0, player.invul - 1/60);
+
+    // spawn engel
+    nextSpawn--;
+    if(nextSpawn <= 0){
       spawnObstacle();
-      // spawn aralığı (hızla biraz kısalır)
-      const base = 1.15;
-      const varr = 0.65;
-      spawnTimer = (base + Math.random()*varr) / (1 + (speed-2.25)*0.12);
+      // spawn aralığı: hızlandıkça sıklaşsın
+      let base = rand(45, 85);
+      nextSpawn = clamp((base / (1 + (speed-2.8)*0.25))|0, 28, 95);
     }
 
-    // spawn shield
-    shieldTimer -= dt;
-    if(shieldTimer <= 0){
+    // spawn kalkan
+    nextShield--;
+    if(nextShield <= 0){
       spawnShield();
-      shieldTimer = 10 + Math.random()*7; // 10-17 sn
+      nextShield = 200 + (Math.random()*220)|0; // 3-7 sn arası
     }
+
+    // hız çok az artsın
+    speed += 0.0009;
 
     const pRect = { x: player.x, y: player.y, w: player.w, h: player.h };
 
-    // move/draw obstacles
-    for(let i=obstacles.length-1;i>=0;i--){
+    // engeller hareket + çarpışma
+    for(let i=obstacles.length-1; i>=0; i--){
       const o = obstacles[i];
       o.x -= speed;
+      drawObstacle(o);
 
-      drawImage(o.img, o.x, o.y, o.scale);
-
-      if(o.x + o.w < -40) obstacles.splice(i,1);
+      if(o.x + o.w < -30) { obstacles.splice(i,1); continue; }
 
       if(rectHit(pRect, o)){
-        if(player.hasShield){
-          player.hasShield = false;
+        if(player.shield){
+          player.shield = false;
           obstacles.splice(i,1);
-          showToast("🛡️ Kalkan çarpmayı engelledi!");
-        }else{
-          // game over
-          running = false;
-          showToast("💥 Çarptın! Dokun ve tekrar başla");
-          return;
+          showToast("🛡 Kalkan kırıldı!");
+        } else if(player.invul <= 0){
+          state = "gameover";
+          showToast("💥 Çarptın");
         }
       }
     }
 
-    // move/draw shields
-    for(let i=shields.length-1;i>=0;i--){
-      const s = shields[i];
-      s.x -= speed;
+    // kalkan drop hareket + alma
+    for(let i=shieldDrops.length-1; i>=0; i--){
+      const s = shieldDrops[i];
+      s.x -= speed * 0.75;
+      drawShieldDrop(s);
 
-      drawImage(s.img, s.x, s.y, s.scale);
-
-      if(s.x + s.w < -40) shields.splice(i,1);
+      if(s.x + s.w < -30) { shieldDrops.splice(i,1); continue; }
 
       if(rectHit(pRect, s)){
-        player.hasShield = true;
-        shields.splice(i,1);
-        showToast("🛡️ Kalkan aldın!");
+        player.shield = true;
+        shieldDrops.splice(i,1);
+        showToast("🛡 Kalkan aldın!");
       }
     }
 
+    // çiz oyuncu (en üstte)
     drawPlayer();
-    drawHUD();
   }
 
-  async function boot(){
-    try{
-      const [bg, final, paper, books2, books3, shield] = await Promise.all([
-        loadImage(ASSETS.bg),
-        loadImage(ASSETS.final),
-        loadImage(ASSETS.paper),
-        loadImage(ASSETS.books2),
-        loadImage(ASSETS.books3),
-        loadImage(ASSETS.shield),
-      ]);
-      IM = { bg, final, paper, books2, books3, shield };
-      // bg ve final zaten 480x250 -> canvas 240x426'da üstte oturtmak için ölçek 0.5
-      // Biz 480x250'yi canvas'a 240x125 olarak çizmek istemiyoruz.
-      // Bu yüzden: bg ve final'i kodda 240x426 için otomatik ölçekleyeceğiz.
-      // Kolay yol: bg/final dosyalarını 240x426 yap. Şimdilik burada 480x250'yi canvas'a sığdırıyoruz:
-      // -> drawImage fonksiyonunda 1 ölçek ile 480 px genişlik sığmaz.
-      // Çözüm: bg/final'i yükler yüklemez 240x426'ya ölçekle.
-      const makeFit = (im) => {
-        const off = document.createElement("canvas");
-        off.width = 240; off.height = 426;
-        const ictx = off.getContext("2d");
-        ictx.imageSmoothingEnabled = false;
-        // 480x250'yi yatayda sığdırmak için 0.5 ölçek + yukarı hizala
-        ictx.drawImage(im, 0, 0, 240, 125);
-        // alt kısmı basit gökyüzü/zeminle doldur
-        // (istersen senin 240x426 background ile değiştiririz)
-        ictx.drawImage(im, 0, 0, 240, 125);
-        // stretch kalan kısmı aynı görüntüden biraz uzat (pratik çözüm)
-        ictx.drawImage(im, 0, 90, 240, 336);
-        const out = new Image();
-        out.src = off.toDataURL("image/png");
-        return out;
-      };
-
-      IM.bg = makeFit(bg);
-      IM.final = makeFit(final);
-
-      // Start at idle screen
-      running = false;
-      loop();
-    }catch(e){
-      console.error(e);
-      alert("Asset yüklenemedi. assets klasörü ve dosya adları doğru mu?");
-    }
-  }
-
-  boot();
+  step();
 })();
 </script>
 </body>
