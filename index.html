@@ -105,7 +105,9 @@
   <div id="endCard">
     <div id="endTop">Yusuf Runner</div>
     <div id="endTitle">İyi ki doğdun! 🎂</div>
-    <div id="endText">Doğum günün için ne yapabilirim diye düşündüm, hem anılarımı sana yansıtmak hem de teşekkür etmek için site yaptım,yordu.... Son yıllarda en sevdiğim kişilerden belki de en sevdiğim oldun. Her ne kadar ben senin için pek anlamlı olmasam da, bana abilik, arkadaşlık, patronluk, hayallerimde sevgililik😉 yaptın. Seninle arkadaşın olabilecek bi yaşta vs olmayı istedim. Seni çok darladım, sohbet, ilgi, çıktı çok şey istedim. Bunun rahatsız ettiğinin ve bi yere varmadığının farkındayım. Bundan sonra rahatsız etmeyeceğim. Sözlerini tutmadın ama 18 olunca abi dememeye anlaşmıştık. Kendine iyi bak Yusuf.\nHer bölüm ayrı bir anı. 💚\n -Can Ensar Abi oyundan ayrıldı...</div>
+    <div id="endText">Doğum günün için ne yapabilirim diye düşündüm, hem anılarımı sana yansıtmak hem de teşekkür etmek için site yaptım,yordu.... Son yıllarda en sevdiğim kişilerden belki de en sevdiğim oldun. Her ne kadar ben senin için pek anlamlı olmasam da, bana abilik, arkadaşlık, patronluk, hayallerimde sevgililik😉 yaptın. Seninle arkadaşın olabilecek bi yaşta vs olmayı istedim. Seni çok darladım, sohbet, ilgi, çıktı çok şey istedim. Bunun rahatsız ettiğinin ve bi yere varmadığının farkındayım. Bundan sonra rahatsız etmeyeceğim. Sözlerini tutmadın ama 18 olunca abi dememeye anlaşmıştık. Kendine iyi bak Yusuf.
+Her bölüm ayrı bir anı. 💚
+-Can Ensar Abi oyundan ayrıldı...</div>
   </div>
 </div>
 
@@ -124,6 +126,34 @@
   const endOverlay = document.getElementById('endOverlay');
   const endTitle = document.getElementById('endTitle');
   const endText  = document.getElementById('endText');
+
+  // ---- ✅ FINAL MUSIC (SADECE KAPANIŞ NOTU AÇILINCA ÇALAR) ----
+  const finalMusic = new Audio("assets/final_music.mp3");
+  finalMusic.loop = true;
+  finalMusic.preload = "auto";
+  finalMusic.volume = 0.9;
+
+  let audioUnlocked = false;
+  async function unlockAudioOnce(){
+    if(audioUnlocked) return;
+    audioUnlocked = true;
+    try{
+      finalMusic.muted = true;
+      await finalMusic.play();
+      finalMusic.pause();
+      finalMusic.currentTime = 0;
+      finalMusic.muted = false;
+    }catch(e){
+      // bazı cihazlarda sessiz kalabilir; sorun değil
+    }
+  }
+
+  function stopFinalMusic(){
+    try{
+      finalMusic.pause();
+      finalMusic.currentTime = 0;
+    }catch(e){}
+  }
 
   // Kapanış metni (istediğin gibi değiştir)
   const END_NOTE_TITLE = "İyi ki doğdun Yusuf! 🎂";
@@ -392,9 +422,12 @@
     document.title = `Yusuf Runner - ${level.name}`;
     bgX = 0;
 
-    // ✅ Level değişince kapanış kilidini sıfırla (ama kapanış açıldıysa zaten oyun bitecek)
+    // ✅ Level değişince kapanış kilidini sıfırla
     endLocked = false;
     endOverlay.style.display = "none";
+
+    // ✅ Müzik sadece kapanış notunda çalacak → level değişince durdur
+    stopFinalMusic();
   }
 
   // ---------- Utils ----------
@@ -411,16 +444,30 @@
 
   // ---------- Controls ----------
   function onTap(){
+    // ✅ iOS/Safari vs için ses kilidini ilk dokunuşta aç
+    unlockAudioOnce();
+
     // ✅ Kapanış açıldıysa hiçbir şey yapma (asla kapanmasın)
     if(endLocked) return;
 
     if(state === "final"){
-      // ✅ 3. bölüm finalinde dokununca kapanış notu aç ve oyun burada bitsin
+      // ✅ 3. bölüm finalinde dokununca kapanış notu aç + müziği BAŞLAT
       if(currentLevel === 3){
         endLocked = true;
-        endTitle.textContent = END_NOTE_TITLE;
-        endText.textContent  = END_NOTE_TEXT;
+
+        // İstersen bunu kullan: END_NOTE_TITLE / END_NOTE_TEXT
+        // ama sen HTML'de uzun metni zaten yazmışsın; gene de güvenli kalsın:
+        endTitle.textContent = END_NOTE_TITLE; // istersen sil, HTML'deki kalsın
+        endText.textContent  = END_NOTE_TEXT;  // istersen sil, HTML'deki kalsın
+
         endOverlay.style.display = "flex";
+
+        // ✅ SADECE BURADA ÇAL
+        try{
+          finalMusic.currentTime = 0;
+          finalMusic.play().catch(()=>{});
+        }catch(e){}
+
         return;
       }
 
@@ -689,6 +736,9 @@
   function startGame(){
     // ✅ kapanış kilidini kırma: kapanış açıldıysa oyun bitmiş demek
     if(endLocked) return;
+
+    // ✅ oyun tekrar başlayınca (olası) müziği kapalı tut
+    stopFinalMusic();
 
     state = "run";
     elapsed = 0;
