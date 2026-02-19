@@ -103,18 +103,17 @@
   const finalVid = document.createElement("video");
   finalVid.src = "assets/final.mp4";
   finalVid.loop = true;
-  finalVid.muted = true;       // autoplay policy
-  finalVid.playsInline = true; // iOS
+  finalVid.muted = true;
+  finalVid.playsInline = true;
   finalVid.preload = "auto";
 
   function ready(img){ return img && img.complete && img.naturalWidth > 0; }
 
   // ---------- RUN SPRITE (193 frame) ----------
-  // assets/run_frames/frame_000.png ... frame_192.png
   const RUN_DIR = "assets/run_frames";
   const RUN_TOTAL = 193;
-  const RUN_INTRO_END = 5;   // 0..5 1 kere
-  const RUN_LOOP_START = 6;  // 6..192 loop
+  const RUN_INTRO_END = 5;
+  const RUN_LOOP_START = 6;
   const RUN_FPS = 24;
 
   const runFrames = new Array(RUN_TOTAL);
@@ -147,21 +146,30 @@
       if(runPhase === "intro"){
         if(runFrame > RUN_INTRO_END){
           runPhase = "run";
-          runFrame = RUN_LOOP_START; // 6
+          runFrame = RUN_LOOP_START;
         }
       } else {
         if(runFrame >= RUN_TOTAL){
-          runFrame = RUN_LOOP_START; // 6'dan dön
+          runFrame = RUN_LOOP_START;
         }
       }
     }
   }
 
   // ✅ Karakter boyutu: hedef yükseklik (px)
-  // Büyük gelirse 80'e indir, küçük gelirse 95-110
   const SPRITE_TARGET_H = 85;
   const SPRITE_OX = -6;
   const SPRITE_OY = -2;
+
+  // ✅ Hitbox ayarı (sprite'a göre)
+  // hitbox solda kalıyorsa HB_OX'i arttır (+), sağda kalıyorsa azalt (-)
+  const HB_OX = 10;
+  const HB_OY = 6;
+  const HB_W  = 18;
+  const HB_H  = 28;
+
+  // Debug hitbox çizmek istersen true yap
+  const DEBUG_HITBOX = false;
 
   // ---------- Game constants ----------
   const GROUND_Y = 382;
@@ -213,7 +221,7 @@
     showToast._t = setTimeout(()=> toast.style.display='none', 900);
   }
 
-  // ---------- Controls (tek handler) ----------
+  // ---------- Controls ----------
   function onTap(){
     if(state === "final"){
       finalVid.pause();
@@ -221,7 +229,6 @@
       state = "start";
       return;
     }
-
     if(state === "start"){ startGame(); return; }
     if(state === "gameover"){ startGame(); return; }
     if(state !== "run") return;
@@ -283,27 +290,44 @@
     if(runLoaded > 0 && runFrames[0] && ready(runFrames[0])){
       const img = runFrames[runFrame] || runFrames[0];
       if(ready(img)){
-        // ✅ otomatik scale: hedef yüksekliğe göre
         const scale = SPRITE_TARGET_H / img.height;
         const dw = (img.width * scale) | 0;
         const dh = (img.height * scale) | 0;
 
         const dx = (player.x + SPRITE_OX) | 0;
-        // ✅ ayakları zemine kilitle
-        const dy = (player.y + player.h - dh + SPRITE_OY) | 0; // zıpladıkça sprite da yükselir
+        const dy = (player.y + player.h - dh + SPRITE_OY) | 0;
+
+        // ✅ Kalkan ışıltısı (sprite'a uyarlı)
+        if(player.shield){
+          ctx.save();
+          ctx.globalAlpha = 0.35;
+          ctx.fillStyle = "rgba(120,255,210,1)";
+          ctx.beginPath();
+          ctx.ellipse(dx + dw/2, dy + dh/2, dw*0.62, dh*0.62, 0, 0, Math.PI*2);
+          ctx.fill();
+
+          ctx.globalAlpha = 0.65;
+          ctx.strokeStyle = "rgba(120,255,210,1)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(dx + dw/2, dy + dh/2, dw*0.72, dh*0.72, 0, 0, Math.PI*2);
+          ctx.stroke();
+          ctx.restore();
+        }
 
         ctx.drawImage(img, dx, dy, dw, dh);
+
+        // ✅ Debug hitbox
+        if(DEBUG_HITBOX){
+          const pRect = { x: player.x + HB_OX, y: player.y + HB_OY, w: HB_W, h: HB_H };
+          ctx.strokeStyle = "rgba(120,255,210,.9)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(pRect.x, pRect.y, pRect.w, pRect.h);
+        }
       }
     } else {
       ctx.fillStyle = "#eaf1ff";
       ctx.fillRect(player.x, player.y, player.w, player.h);
-    }
-
-    if(player.shield){
-      ctx.strokeStyle = "rgba(120,255,210,.9)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(player.x-2, player.y-2, player.w+4, player.h+4);
-      ctx.lineWidth = 1;
     }
   }
 
@@ -477,7 +501,6 @@
     player.invul = 0;
 
     nextSpawn = 40;
-
     nextShield = 520 + (Math.random()*360);
 
     quizIndex = 0;
@@ -491,7 +514,7 @@
     showToast("🏁 Başla!");
   }
 
-  // ---------- Main loop (dt ile) ----------
+  // ---------- Main loop ----------
   let lastTs = 0;
   function step(ts){
     requestAnimationFrame(step);
@@ -559,16 +582,20 @@
     // kalkan spawn
     nextShield -= dt * 60;
     if(nextShield <= 0){
-      if(!player.shield){
-        spawnShield();
-      }
+      if(!player.shield) spawnShield();
       nextShield = 520 + (Math.random()*360);
     }
 
     // hız artışı
     speed += 0.0009 * (dt * 60);
 
-    const pRect = { x: player.x, y: player.y, w: player.w, h: player.h };
+    // ✅ Hitbox: sprite'a göre offsetlenmiş
+    const pRect = {
+      x: player.x + HB_OX,
+      y: player.y + HB_OY,
+      w: HB_W,
+      h: HB_H
+    };
 
     // engeller
     for(let i=obstacles.length-1; i>=0; i--){
@@ -605,12 +632,16 @@
       }
     }
 
+    // debug
+    if(DEBUG_HITBOX){
+      ctx.strokeStyle = "rgba(120,255,210,.9)";
+      ctx.strokeRect(pRect.x, pRect.y, pRect.w, pRect.h);
+    }
+
     drawPlayer();
   }
 
   requestAnimationFrame(step);
-
-  // start ekranı için
   state = "start";
 })();
 </script>
