@@ -142,7 +142,6 @@
     while(runAcc >= step){
       runAcc -= step;
       runFrame++;
-
       if(runPhase === "intro"){
         if(runFrame > RUN_INTRO_END){
           runPhase = "run";
@@ -156,19 +155,19 @@
     }
   }
 
-  // ✅ Karakter boyutu: hedef yükseklik (px)
+  // ✅ Karakter boyutu
   const SPRITE_TARGET_H = 85;
   const SPRITE_OX = -6;
   const SPRITE_OY = -2;
 
-  // ✅ Hitbox ayarı (sprite'a göre)
-  // hitbox solda kalıyorsa HB_OX'i arttır (+), sağda kalıyorsa azalt (-)
+  // ✅ Yusuf hitbox: kafaya doğru biraz uzasın (HB_H ↑, HB_OY ↓)
+  // hitbox sağ/sol: HB_OX ile ayarla
   const HB_OX = 10;
-  const HB_OY = 6;
+  const HB_OY = 3;     // 6 idi -> 3 (daha yukarı)
   const HB_W  = 18;
-  const HB_H  = 28;
+  const HB_H  = 32;    // 28 idi -> 32 (kafaya uzadı)
 
-  // Debug hitbox çizmek istersen true yap
+  // Debug açmak istersen true
   const DEBUG_HITBOX = false;
 
   // ---------- Game constants ----------
@@ -179,8 +178,6 @@
   // ---------- State ----------
   let state = "start"; // start | run | quiz | final | gameover
   let speed = 2.8;
-
-  // background loop offset
   let bgX = 0;
 
   const player = {
@@ -198,7 +195,6 @@
   let nextShield = 200;
 
   let elapsed = 0;
-
   const LEVEL_SECONDS = 45;
 
   // Quiz
@@ -249,7 +245,6 @@
       ctx.fillRect(0,0,W,H);
       return;
     }
-
     const scale = H / img.height;
     const drawW = img.width * scale;
     const drawH = H;
@@ -317,7 +312,7 @@
 
         ctx.drawImage(img, dx, dy, dw, dh);
 
-        // ✅ Debug hitbox
+        // Debug: Yusuf hitbox
         if(DEBUG_HITBOX){
           const pRect = { x: player.x + HB_OX, y: player.y + HB_OY, w: HB_W, h: HB_H };
           ctx.strokeStyle = "rgba(120,255,210,.9)";
@@ -337,6 +332,19 @@
     } else {
       ctx.fillStyle = "#ff5b7a";
       ctx.fillRect(o.x, o.y, o.w, o.h);
+    }
+
+    // Debug: obstacle collision box
+    if(DEBUG_HITBOX){
+      const r = {
+        x: o.x + (o.colOX || 0),
+        y: o.y + (o.colOY || 0),
+        w: o.colW || o.w,
+        h: o.colH || o.h
+      };
+      ctx.strokeStyle = "rgba(255,80,80,.9)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
     }
   }
 
@@ -408,14 +416,21 @@
     const r = Math.random();
 
     if(r < 0.45){
+      // KAĞIT
       const w = 40, h = 32;
       obstacles.push({
         img: paperImg,
         x: W + 20,
         y: (GROUND_Y - 110 - Math.random()*45) | 0,
-        w, h
+        w, h,
+        // collision (isteğe bağlı)
+        colOX: 8,
+        colOY: 6,
+        colW: w - 16,
+        colH: h - 12
       });
     } else {
+      // KİTAPLAR (✅ hitbox küçültüldü)
       const img = Math.random() < 0.5 ? booksImg1 : booksImg2;
       const w = 44;
       const h = (img === booksImg1) ? 28 : 40;
@@ -424,7 +439,13 @@
         img,
         x: W + 20,
         y: GROUND_Y - h,
-        w, h
+        w, h,
+
+        // ✅ kitap collision: kenarlardan kırp
+        colOX: 7,
+        colOY: 6,
+        colW: w - 14,
+        colH: h - 12
       });
     }
   }
@@ -553,7 +574,6 @@
 
     // ---------- RUN ----------
     elapsed += dt;
-
     updateRunAnim(dt);
 
     if(elapsed >= LEVEL_SECONDS){
@@ -571,7 +591,7 @@
       player.onGround = true;
     }
 
-    // engel spawn
+    // spawn
     nextSpawn -= dt * 60;
     if(nextSpawn <= 0){
       spawnObstacle();
@@ -579,17 +599,15 @@
       nextSpawn = clamp((base / (1 + (speed-2.8)*0.25)), 28, 95);
     }
 
-    // kalkan spawn
     nextShield -= dt * 60;
     if(nextShield <= 0){
       if(!player.shield) spawnShield();
       nextShield = 520 + (Math.random()*360);
     }
 
-    // hız artışı
     speed += 0.0009 * (dt * 60);
 
-    // ✅ Hitbox: sprite'a göre offsetlenmiş
+    // ✅ Yusuf hitbox
     const pRect = {
       x: player.x + HB_OX,
       y: player.y + HB_OY,
@@ -605,7 +623,15 @@
 
       if(o.x + o.w < -30) { obstacles.splice(i,1); continue; }
 
-      if(rectHit(pRect, o)){
+      // ✅ Engel collision rect (kitaplar küçültülmüş)
+      const oRect = {
+        x: o.x + (o.colOX || 0),
+        y: o.y + (o.colOY || 0),
+        w: o.colW || o.w,
+        h: o.colH || o.h
+      };
+
+      if(rectHit(pRect, oRect)){
         if(player.shield){
           player.shield = false;
           obstacles.splice(i,1);
@@ -632,9 +658,10 @@
       }
     }
 
-    // debug
+    // debug: Yusuf hitbox
     if(DEBUG_HITBOX){
       ctx.strokeStyle = "rgba(120,255,210,.9)";
+      ctx.lineWidth = 1;
       ctx.strokeRect(pRect.x, pRect.y, pRect.w, pRect.h);
     }
 
