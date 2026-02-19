@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Yusuf Runner - Bölüm 1</title>
+  <title>Yusuf Runner</title>
   <style>
     :root { color-scheme: dark; }
     html, body { margin:0; height:100%; background:#0b0f14; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
@@ -92,16 +92,26 @@
 
   const W = canvas.width, H = canvas.height;
 
-  // ---------- Assets ----------
-  const bgImg = new Image();     bgImg.src = "assets/bg_loop.png";
-  const paperImg = new Image();  paperImg.src = "assets/paper.png";
-  const booksImg1 = new Image(); booksImg1.src = "assets/books2.png";
-  const booksImg2 = new Image(); booksImg2.src = "assets/books3.png";
+  // ---------- Assets (Level 1 + Level 2) ----------
+  // Level 1
+  const bg1 = new Image();     bg1.src = "assets/bg_loop.png";
+  const paper1 = new Image();  paper1.src = "assets/paper.png";
+  const book1a = new Image();  book1a.src = "assets/books2.png";
+  const book1b = new Image();  book1b.src = "assets/books3.png";
+  const final1 = "assets/final.mp4";
+
+  // Level 2 (assets/level2/*)
+  const bg2 = new Image();     bg2.src = "assets/level2/bg_loop.png";
+  const bird2 = new Image();   bird2.src = "assets/level2/bird.png";
+  const trash2 = new Image();  trash2.src = "assets/level2/trash.png";
+  const ball2 = new Image();   ball2.src = "assets/level2/ball.png";
+  const final2 = "assets/level2/final.mp4"; // varsa kullan, yoksa yine de hata vermez (sadece yüklenmez)
+
+  // Shield (aynı)
   const shieldImg = new Image(); shieldImg.src = "assets/shield.png";
 
-  // ✅ FINAL MP4
+  // ✅ FINAL MP4 (dinamik level)
   const finalVid = document.createElement("video");
-  finalVid.src = "assets/final.mp4";
   finalVid.loop = true;
   finalVid.muted = true;
   finalVid.playsInline = true;
@@ -160,20 +170,150 @@
   const SPRITE_OX = -6;
   const SPRITE_OY = -2;
 
-  // ✅ Yusuf hitbox: kafaya doğru biraz uzasın (HB_H ↑, HB_OY ↓)
-  // hitbox sağ/sol: HB_OX ile ayarla
+  // ✅ Yusuf hitbox (kafaya doğru uzatılmış)
   const HB_OX = 10;
-  const HB_OY = -2;     // 6 idi -> 3 (daha yukarı)
+  const HB_OY = -2;
   const HB_W  = 18;
-  const HB_H  = 36;    // 28 idi -> 32 (kafaya uzadı)
+  const HB_H  = 36;
 
-  // Debug açmak istersen true
   const DEBUG_HITBOX = false;
 
   // ---------- Game constants ----------
   const GROUND_Y = 382;
   const GRAV = 0.55;
   const JUMP_V = -10.2;
+
+  // ---------- Levels config ----------
+  const levels = {
+    1: {
+      id: 1,
+      name: "Bölüm 1 — Beşiktaş",
+      bg: bg1,
+      finalSrc: final1,
+      hint: "Engeller: Kağıt + Kitap",
+      quizzes: [
+        { q:"Yusuf bu dönem girdiği 3 sınavdan kaçını geçmiştir?", options:["0","1","2","3"], correct:2 },
+        { q:"Yusuf'un Can'ın ağzına verdiği sütlü şey nedir?", options:["Sütlaç","Kinder Süt Dilimi","Çilekli Süt","Ayıp"], correct:1 },
+        { q:"Yusuf nerede kumar oynayıp kazanmıştır?", options:["Romanya","Kıbrıs","Romanya","Gürcistan"], correct:3 },
+      ],
+      spawnObstacle(){
+        const r = Math.random();
+
+        if(r < 0.45){
+          // KAĞIT
+          const w = 40, h = 32;
+          obstacles.push({
+            img: paper1,
+            x: W + 20,
+            y: (GROUND_Y - 110 - Math.random()*45) | 0,
+            w, h,
+            colOX: 8,
+            colOY: 6,
+            colW: w - 16,
+            colH: h - 12
+          });
+        } else {
+          // KİTAPLAR
+          const img = Math.random() < 0.5 ? book1a : book1b;
+          const w = 44;
+          const h = (img === book1a) ? 28 : 40;
+
+          obstacles.push({
+            img,
+            x: W + 20,
+            y: GROUND_Y - h,
+            w, h,
+            colOX: 7,
+            colOY: 6,
+            colW: w - 14,
+            colH: h - 12
+          });
+        }
+      }
+    },
+
+    2: {
+      id: 2,
+      name: "Bölüm 2 — Park",
+      bg: bg2,
+      finalSrc: final2,
+      hint: "Engeller: Kuş + Çöp + Top",
+      quizzes: [
+        { q:"Parkta Yusuf’un önüne en çok ne çıkar?", options:["Kuş","Çöp kutusu","Top","Hepsi"], correct:3 },
+        { q:"Kuş engeli hangi yükseklikte gelir?", options:["Yerde","Havada","Denizde","Çatıda"], correct:1 },
+        { q:"Park bölümünde hedef ne?", options:["Koşmaya devam","Bankta uyumak","Balık tutmak","Kaybolmak"], correct:0 },
+      ],
+      spawnObstacle(){
+        const r = Math.random();
+
+        if(r < 0.40){
+          // 🐦 KUŞ (havada)
+          const w = 38, h = 28;
+          obstacles.push({
+            img: bird2,
+            x: W + 20,
+            y: (GROUND_Y - 150 - Math.random()*40) | 0,
+            w, h,
+            colOX: 6,
+            colOY: 6,
+            colW: w - 12,
+            colH: h - 12
+          });
+        } else if(r < 0.75){
+          // 🗑️ ÇÖP (yerde)
+          const w = 42, h = 44;
+          obstacles.push({
+            img: trash2,
+            x: W + 20,
+            y: GROUND_Y - h,
+            w, h,
+            colOX: 8,
+            colOY: 8,
+            colW: w - 16,
+            colH: h - 12
+          });
+        } else {
+          // ⚽ TOP (küçük)
+          const w = 28, h = 28;
+          obstacles.push({
+            img: ball2,
+            x: W + 20,
+            y: GROUND_Y - h,
+            w, h,
+            colOX: 5,
+            colOY: 5,
+            colW: w - 10,
+            colH: h - 10
+          });
+        }
+      }
+    }
+  };
+
+  const MAX_LEVEL = 2;
+  let currentLevel = 1;
+  let level = levels[currentLevel];
+
+  function loadLevel(n){
+    currentLevel = Math.max(1, Math.min(MAX_LEVEL, n));
+    level = levels[currentLevel];
+
+    // video
+    finalVid.pause();
+    finalVid.currentTime = 0;
+    finalVid.src = level.finalSrc;
+    finalVid.load();
+
+    // quiz
+    quizzes = level.quizzes;
+    quizIndex = 0;
+
+    // ekran metinleri
+    document.title = `Yusuf Runner - ${level.name}`;
+
+    // reset background scroll
+    bgX = 0;
+  }
 
   // ---------- State ----------
   let state = "start"; // start | run | quiz | final | gameover
@@ -197,12 +337,8 @@
   let elapsed = 0;
   const LEVEL_SECONDS = 45;
 
-  // Quiz
-  const quizzes = [
-    { q:"Yusuf bu dönem girdiği 3 sınavdan kaçını geçmiştir?", options:["0","1","2","3"], correct:2 },
-    { q:"Yusuf'un Can'ın ağzına verdiği sütlü şey nedir?", options:["Sütlaç","Kinder Süt Dilimi","Çilekli Süt","Ayıp"], correct:1 },
-    { q:"Yusuf nerede kumar oynayıp kazanmıştır?", options:["Romanya","Kıbrıs","Romanya","Gürcistan"], correct:3 },
-  ];
+  // Quiz (dinamik)
+  let quizzes = levels[1].quizzes;
   let quizIndex = 0;
 
   // ---------- Utils ----------
@@ -220,11 +356,22 @@
   // ---------- Controls ----------
   function onTap(){
     if(state === "final"){
+      // finalden çık: bir sonraki bölüme geç
       finalVid.pause();
       finalVid.currentTime = 0;
-      state = "start";
+
+      if(currentLevel < MAX_LEVEL){
+        loadLevel(currentLevel + 1);
+        state = "start"; // sonraki bölümün start ekranı
+        showToast(`➡️ ${levels[currentLevel].name}`);
+      } else {
+        // tüm bölümler bitti -> başa
+        loadLevel(1);
+        state = "start";
+      }
       return;
     }
+
     if(state === "start"){ startGame(); return; }
     if(state === "gameover"){ startGame(); return; }
     if(state !== "run") return;
@@ -265,7 +412,7 @@
     ctx.fillText("Dokun = Zıpla", 10, 16);
 
     ctx.fillStyle = "rgba(234,241,255,.85)";
-    ctx.fillText("Bölüm 1 — Beşiktaş", 10, 34);
+    ctx.fillText(level.name, 10, 34);
 
     if(state === "run"){
       ctx.fillStyle = "rgba(234,241,255,.80)";
@@ -312,7 +459,6 @@
 
         ctx.drawImage(img, dx, dy, dw, dh);
 
-        // Debug: Yusuf hitbox
         if(DEBUG_HITBOX){
           const pRect = { x: player.x + HB_OX, y: player.y + HB_OY, w: HB_W, h: HB_H };
           ctx.strokeStyle = "rgba(120,255,210,.9)";
@@ -334,7 +480,6 @@
       ctx.fillRect(o.x, o.y, o.w, o.h);
     }
 
-    // Debug: obstacle collision box
     if(DEBUG_HITBOX){
       const r = {
         x: o.x + (o.colOX || 0),
@@ -376,13 +521,13 @@
     ctx.fillRect(0, 0, W, 42);
     ctx.fillStyle="#eaf1ff";
     ctx.font="12px system-ui";
-    ctx.fillText("Bölüm 1 Tamamlandı!", 10, 18);
+    ctx.fillText(`${level.name} Tamamlandı!`, 10, 18);
     ctx.font="10px system-ui";
     ctx.fillText("Dokun → Devam", 10, 34);
   }
 
   function drawStart(){
-    drawLoopBackgroundCover(bgImg, 0);
+    drawLoopBackgroundCover(level.bg, 0);
     drawGroundLine();
 
     runFrame = 0;
@@ -395,7 +540,7 @@
     ctx.fillText("Dokun ve Başla", 55, 200);
     ctx.font="11px system-ui";
     ctx.fillStyle="rgba(234,241,255,.8)";
-    ctx.fillText("Engeller: Kağıt + Kitap", 56, 224);
+    ctx.fillText(level.hint, 56, 224);
     ctx.fillText("Kalkan: 1 çarpma affeder", 44, 242);
 
     drawPlayer();
@@ -413,41 +558,8 @@
 
   // ---------- Spawning ----------
   function spawnObstacle(){
-    const r = Math.random();
-
-    if(r < 0.45){
-      // KAĞIT
-      const w = 40, h = 32;
-      obstacles.push({
-        img: paperImg,
-        x: W + 20,
-        y: (GROUND_Y - 110 - Math.random()*45) | 0,
-        w, h,
-        // collision (isteğe bağlı)
-        colOX: 8,
-        colOY: 6,
-        colW: w - 16,
-        colH: h - 12
-      });
-    } else {
-      // KİTAPLAR (✅ hitbox küçültüldü)
-      const img = Math.random() < 0.5 ? booksImg1 : booksImg2;
-      const w = 44;
-      const h = (img === booksImg1) ? 28 : 40;
-
-      obstacles.push({
-        img,
-        x: W + 20,
-        y: GROUND_Y - h,
-        w, h,
-
-        // ✅ kitap collision: kenarlardan kırp
-        colOX: 7,
-        colOY: 6,
-        colW: w - 14,
-        colH: h - 12
-      });
-    }
+    // Level'e göre spawn
+    level.spawnObstacle();
   }
 
   function spawnShield(){
@@ -553,7 +665,7 @@
       return;
     }
 
-    drawLoopBackgroundCover(bgImg, (state==="run" ? speed*0.35 : 0));
+    drawLoopBackgroundCover(level.bg, (state==="run" ? speed*0.35 : 0));
     drawGroundLine();
     drawHUD();
 
@@ -623,7 +735,6 @@
 
       if(o.x + o.w < -30) { obstacles.splice(i,1); continue; }
 
-      // ✅ Engel collision rect (kitaplar küçültülmüş)
       const oRect = {
         x: o.x + (o.colOX || 0),
         y: o.y + (o.colOY || 0),
@@ -658,7 +769,6 @@
       }
     }
 
-    // debug: Yusuf hitbox
     if(DEBUG_HITBOX){
       ctx.strokeStyle = "rgba(120,255,210,.9)";
       ctx.lineWidth = 1;
@@ -668,6 +778,8 @@
     drawPlayer();
   }
 
+  // init
+  loadLevel(1);
   requestAnimationFrame(step);
   state = "start";
 })();
