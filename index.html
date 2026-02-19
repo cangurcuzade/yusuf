@@ -124,8 +124,6 @@ Her bölüm ayrı bir anı. 💚
 
   // ✅ Kapanış overlay refs
   const endOverlay = document.getElementById('endOverlay');
-  const endTitle = document.getElementById('endTitle');
-  const endText  = document.getElementById('endText');
 
   // ---- ✅ FINAL MUSIC (SADECE KAPANIŞ NOTU AÇILINCA ÇALAR) ----
   const finalMusic = new Audio("assets/final_music.mp3");
@@ -143,9 +141,7 @@ Her bölüm ayrı bir anı. 💚
       finalMusic.pause();
       finalMusic.currentTime = 0;
       finalMusic.muted = false;
-    }catch(e){
-      // bazı cihazlarda sessiz kalabilir; sorun değil
-    }
+    }catch(e){}
   }
 
   function stopFinalMusic(){
@@ -155,34 +151,26 @@ Her bölüm ayrı bir anı. 💚
     }catch(e){}
   }
 
-  // Kapanış metni (istediğin gibi değiştir)
-  const END_NOTE_TITLE = "İyi ki doğdun Yusuf! 🎂";
-  const END_NOTE_TEXT  = "Bu siteyi senin için yaptım.\nHer bölüm ayrı bir anı. 💚";
   let endLocked = false; // ✅ bir kez açılınca oyun kilit
 
   const W = canvas.width, H = canvas.height;
 
   // ---------- Assets (Level 1 + Level 2 + Level 3) ----------
-  // Level 1
   const bg1 = new Image();     bg1.src = "assets/bg_loop.png";
   const paper1 = new Image();  paper1.src = "assets/paper.png";
   const book1a = new Image();  book1a.src = "assets/books2.png";
   const book1b = new Image();  book1b.src = "assets/books3.png";
 
-  // Level 2 (assets/level2/*)
   const bg2 = new Image();     bg2.src = "assets/level2/bg_loop.png";
   const bird2 = new Image();   bird2.src = "assets/level2/bird.png";
   const trash2 = new Image();  trash2.src = "assets/level2/trash.png";
   const ball2 = new Image();   ball2.src = "assets/level2/ball.png";
 
-  // Level 3 (assets/level3/*)
   const cone3  = new Image();  cone3.src  = "assets/level3/cone.png";
   const crate3 = new Image();  crate3.src = "assets/level3/crate.png";
 
-  // Shield
   const shieldImg = new Image(); shieldImg.src = "assets/shield.png";
 
-  // ✅ FINAL MP4
   const finalVid = document.createElement("video");
   finalVid.loop = true;
   finalVid.muted = true;
@@ -237,12 +225,10 @@ Her bölüm ayrı bir anı. 💚
     }
   }
 
-  // ✅ Karakter boyutu
   const SPRITE_TARGET_H = 85;
   const SPRITE_OX = -6;
   const SPRITE_OY = -2;
 
-  // ✅ Yusuf hitbox
   const HB_OX = 10;
   const HB_OY = -2;
   const HB_W  = 18;
@@ -274,22 +260,14 @@ Her bölüm ayrı bir anı. 💚
         const r = Math.random();
         if(r < 0.45){
           const w = 40, h = 32;
-          obstacles.push({
-            img: paper1,
-            x: W + 20,
-            y: (GROUND_Y - 110 - Math.random()*45) | 0,
-            w, h,
+          obstacles.push({ img: paper1, x: W + 20, y: (GROUND_Y - 110 - Math.random()*45) | 0, w, h,
             colOX: 8, colOY: 6, colW: w - 16, colH: h - 12
           });
         } else {
           const img = Math.random() < 0.5 ? book1a : book1b;
           const w = 44;
           const h = (img === book1a) ? 28 : 40;
-          obstacles.push({
-            img,
-            x: W + 20,
-            y: GROUND_Y - h,
-            w, h,
+          obstacles.push({ img, x: W + 20, y: GROUND_Y - h, w, h,
             colOX: 7, colOY: 6, colW: w - 14, colH: h - 12
           });
         }
@@ -311,29 +289,17 @@ Her bölüm ayrı bir anı. 💚
         const r = Math.random();
         if(r < 0.40){
           const w = 38, h = 28;
-          obstacles.push({
-            img: bird2,
-            x: W + 20,
-            y: (GROUND_Y - 115 - Math.random()*55) | 0,
-            w, h,
+          obstacles.push({ img: bird2, x: W + 20, y: (GROUND_Y - 115 - Math.random()*55) | 0, w, h,
             colOX: 6, colOY: 6, colW: w - 12, colH: h - 12
           });
         } else if(r < 0.75){
           const w = 42, h = 44;
-          obstacles.push({
-            img: trash2,
-            x: W + 20,
-            y: GROUND_Y - h,
-            w, h,
+          obstacles.push({ img: trash2, x: W + 20, y: GROUND_Y - h, w, h,
             colOX: 8, colOY: 8, colW: w - 16, colH: h - 12
           });
         } else {
           const w = 34, h = 34;
-          obstacles.push({
-            img: ball2,
-            x: W + 20,
-            y: GROUND_Y - h,
-            w, h,
+          obstacles.push({ img: ball2, x: W + 20, y: GROUND_Y - h, w, h,
             colOX: 6, colOY: 6, colW: w - 12, colH: h - 12
           });
         }
@@ -355,23 +321,13 @@ Her bölüm ayrı bir anı. 💚
         const r = Math.random();
         if(r < 0.55){
           const w = 36, h = 42;
-          obstacles.push({
-            img: cone3,
-            x: W + 20,
-            y: GROUND_Y - h,
-            w, h,
-            colOX: 8, colOY: 8,
-            colW: w - 16, colH: h - 10
+          obstacles.push({ img: cone3, x: W + 20, y: GROUND_Y - h, w, h,
+            colOX: 8, colOY: 8, colW: w - 16, colH: h - 10
           });
         } else {
           const w = 52, h = 40;
-          obstacles.push({
-            img: crate3,
-            x: W + 20,
-            y: GROUND_Y - h,
-            w, h,
-            colOX: 8, colOY: 8,
-            colW: w - 16, colH: h - 12
+          obstacles.push({ img: crate3, x: W + 20, y: GROUND_Y - h, w, h,
+            colOX: 8, colOY: 8, colW: w - 16, colH: h - 12
           });
         }
       }
@@ -422,11 +378,10 @@ Her bölüm ayrı bir anı. 💚
     document.title = `Yusuf Runner - ${level.name}`;
     bgX = 0;
 
-    // ✅ Level değişince kapanış kilidini sıfırla
+    // kapanış temizliği (kapanış açıldıysa zaten oyun bitecek)
     endLocked = false;
     endOverlay.style.display = "none";
 
-    // ✅ Müzik sadece kapanış notunda çalacak → level değişince durdur
     stopFinalMusic();
   }
 
@@ -444,31 +399,28 @@ Her bölüm ayrı bir anı. 💚
 
   // ---------- Controls ----------
   function onTap(){
-    // ✅ iOS/Safari vs için ses kilidini ilk dokunuşta aç
     unlockAudioOnce();
 
-    // ✅ Kapanış açıldıysa hiçbir şey yapma (asla kapanmasın)
+    // kapanış açıldıysa kilit
     if(endLocked) return;
 
+    // final ekranındayken dokunma davranışı
     if(state === "final"){
+      // 3. bölüm finalinde dokununca: not aç + müzik başlat
       if(currentLevel === 3){
         endLocked = true;
         endOverlay.style.display = "flex";
-    
-        // ✅ GARANTİ ÇALDIR (BU TIKLAMANIN İÇİNDE)
+
         try{
-          finalMusic.pause();              // bazen iOS takılıyor, önce durdur
+          finalMusic.pause();
           finalMusic.currentTime = 0;
           finalMusic.muted = false;
           finalMusic.volume = 0.9;
-          finalMusic.play();
+          finalMusic.play().catch(()=>{});
         }catch(e){}
-    
+
         return;
       }
-    ...
-    }
-
 
       // level 1-2: normal devam
       finalVid.pause();
@@ -733,10 +685,8 @@ Her bölüm ayrı bir anı. 💚
 
   // ---------- Game flow ----------
   function startGame(){
-    // ✅ kapanış kilidini kırma: kapanış açıldıysa oyun bitmiş demek
     if(endLocked) return;
 
-    // ✅ oyun tekrar başlayınca (olası) müziği kapalı tut
     stopFinalMusic();
 
     state = "run";
