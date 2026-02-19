@@ -157,14 +157,14 @@
     }
   }
 
-  // Sprite çizim ayarları (gerekirse oynarsın)
-  const SPRITE_SCALE = 0.38;  // 0.40–0.55 arası dene
-  const SPRITE_OX = -4;
-  const SPRITE_OY = -4;
+  // ✅ Karakter boyutu: hedef yükseklik (px)
+  // Büyük gelirse 80'e indir, küçük gelirse 95-110
+  const SPRITE_TARGET_H = 85;
+  const SPRITE_OX = -6;
+  const SPRITE_OY = -2;
 
   // ---------- Game constants ----------
-  // ✅ her şey biraz daha aşağı
-  const GROUND_Y = 382; // eskiden 360
+  const GROUND_Y = 382;
   const GRAV = 0.55;
   const JUMP_V = -10.2;
 
@@ -216,7 +216,6 @@
   // ---------- Controls (tek handler) ----------
   function onTap(){
     if(state === "final"){
-      // finalden çık
       finalVid.pause();
       finalVid.currentTime = 0;
       state = "start";
@@ -281,20 +280,21 @@
   function drawPlayer(){
     if(player.invul > 0 && Math.floor(performance.now()/90)%2===0) return;
 
-    // start/quiz/gameover’da animasyonu dondurmak için:
-    // runFrame zaten sabit kalır, sadece run state’te update ediyoruz.
     if(runLoaded > 0 && runFrames[0] && ready(runFrames[0])){
       const img = runFrames[runFrame] || runFrames[0];
       if(ready(img)){
-        const dw = (img.width * SPRITE_SCALE) | 0;
-        const dh = (img.height * SPRITE_SCALE) | 0;
+        // ✅ otomatik scale: hedef yüksekliğe göre
+        const scale = SPRITE_TARGET_H / img.height;
+        const dw = (img.width * scale) | 0;
+        const dh = (img.height * scale) | 0;
 
         const dx = (player.x + SPRITE_OX) | 0;
-        const dy = (player.y + player.h - dh + SPRITE_OY) | 0;
+        // ✅ ayakları zemine kilitle
+        const dy = (GROUND_Y - dh + SPRITE_OY) | 0;
+
         ctx.drawImage(img, dx, dy, dw, dh);
       }
     } else {
-      // fallback
       ctx.fillStyle = "#eaf1ff";
       ctx.fillRect(player.x, player.y, player.w, player.h);
     }
@@ -353,7 +353,6 @@
     drawLoopBackgroundCover(bgImg, 0);
     drawGroundLine();
 
-    // start’ta 0. frame sabit
     runFrame = 0;
 
     ctx.fillStyle="rgba(0,0,0,.35)";
@@ -385,7 +384,6 @@
     const r = Math.random();
 
     if(r < 0.45){
-      // ✅ KAĞIT: biraz daha büyük + daha altta
       const w = 40, h = 32;
       obstacles.push({
         img: paperImg,
@@ -395,7 +393,6 @@
       });
     } else {
       const img = Math.random() < 0.5 ? booksImg1 : booksImg2;
-
       const w = 44;
       const h = (img === booksImg1) ? 28 : 40;
 
@@ -412,7 +409,6 @@
     const size = 22;
     shieldDrops.push({
       x: W + 20,
-      // ✅ biraz daha aşağı
       y: (GROUND_Y - 78 - rand(0,22)) | 0,
       w: size,
       h: size
@@ -450,7 +446,6 @@
         if(quizIndex >= quizzes.length){
           closeQuiz();
           state = "final";
-          // ✅ final videoyu başlat
           finalVid.currentTime = 0;
           finalVid.play().catch(()=>{});
         } else {
@@ -483,16 +478,13 @@
 
     nextSpawn = 40;
 
-    // kalkan daha seyrek (9-15sn)
     nextShield = 520 + (Math.random()*360);
 
     quizIndex = 0;
     closeQuiz();
 
-    // ✅ koşu animasyonu reset (0-5 bir kere)
     resetRunAnim();
 
-    // final video varsa durdur/reset
     finalVid.pause();
     finalVid.currentTime = 0;
 
@@ -517,7 +509,6 @@
       return;
     }
 
-    // RUN / QUIZ / GAMEOVER arka plan
     drawLoopBackgroundCover(bgImg, (state==="run" ? speed*0.35 : 0));
     drawGroundLine();
     drawHUD();
@@ -540,7 +531,6 @@
     // ---------- RUN ----------
     elapsed += dt;
 
-    // ✅ koşu animasyonu sadece run’da ilerlesin
     updateRunAnim(dt);
 
     if(elapsed >= LEVEL_SECONDS){
@@ -558,7 +548,7 @@
       player.onGround = true;
     }
 
-    // engel spawn (dt’ye göre)
+    // engel spawn
     nextSpawn -= dt * 60;
     if(nextSpawn <= 0){
       spawnObstacle();
@@ -566,7 +556,7 @@
       nextSpawn = clamp((base / (1 + (speed-2.8)*0.25)), 28, 95);
     }
 
-    // kalkan spawn (dt’ye göre)
+    // kalkan spawn
     nextShield -= dt * 60;
     if(nextShield <= 0){
       if(!player.shield){
@@ -575,7 +565,7 @@
       nextShield = 520 + (Math.random()*360);
     }
 
-    // hafif hız artışı (dt’ye göre)
+    // hız artışı
     speed += 0.0009 * (dt * 60);
 
     const pRect = { x: player.x, y: player.y, w: player.w, h: player.h };
@@ -619,6 +609,9 @@
   }
 
   requestAnimationFrame(step);
+
+  // start ekranı için
+  state = "start";
 })();
 </script>
 </body>
