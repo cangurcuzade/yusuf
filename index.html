@@ -247,12 +247,12 @@
         const r = Math.random();
 
         if(r < 0.40){
-          // 🐦 KUŞ (havada)
+          // 🐦 KUŞ (havada) — ✅ daha alçak bant
           const w = 38, h = 28;
           obstacles.push({
             img: bird2,
             x: W + 20,
-            y: (GROUND_Y - 150 - Math.random()*40) | 0,
+            y: (GROUND_Y - 115 - Math.random()*55) | 0, // ✅ alçaltıldı
             w, h,
             colOX: 6,
             colOY: 6,
@@ -273,17 +273,17 @@
             colH: h - 12
           });
         } else {
-          // ⚽ TOP
-          const w = 28, h = 28;
+          // ⚽ TOP — ✅ biraz büyütüldü
+          const w = 34, h = 34;
           obstacles.push({
             img: ball2,
             x: W + 20,
             y: GROUND_Y - h,
             w, h,
-            colOX: 5,
-            colOY: 5,
-            colW: w - 10,
-            colH: h - 10
+            colOX: 6,
+            colOY: 6,
+            colW: w - 12,
+            colH: h - 12
           });
         }
       }
@@ -405,6 +405,16 @@
     }
   }
 
+  // ✅ FINAL / MEDIA COVER helper (kenar boşlukları yok)
+  function drawCoverMedia(media, mw, mh){
+    const scale = Math.max(W / mw, H / mh); // ✅ cover
+    const dw = mw * scale;
+    const dh = mh * scale;
+    const dx = (W - dw) / 2;
+    const dy = (H - dh) / 2;
+    ctx.drawImage(media, dx, dy, dw, dh);
+  }
+
   // ---------- Drawing ----------
   function drawHUD(){
     ctx.fillStyle = "rgba(234,241,255,.92)";
@@ -504,11 +514,8 @@
 
   function drawFinal(){
     if(finalVid.readyState >= 2){
-      const scale = H / finalVid.videoHeight;
-      const drawW = finalVid.videoWidth * scale;
-      const drawH = H;
-      const x = (W - drawW) / 2;
-      ctx.drawImage(finalVid, x, 0, drawW, drawH);
+      // ✅ cover çizim: sağ/sol ince boşluk kalmaz
+      drawCoverMedia(finalVid, finalVid.videoWidth, finalVid.videoHeight);
     } else {
       ctx.fillStyle="#000";
       ctx.fillRect(0,0,W,H);
