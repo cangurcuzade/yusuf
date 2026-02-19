@@ -98,14 +98,12 @@
   const paper1 = new Image();  paper1.src = "assets/paper.png";
   const book1a = new Image();  book1a.src = "assets/books2.png";
   const book1b = new Image();  book1b.src = "assets/books3.png";
-  const final1 = "assets/final.mp4";
 
   // Level 2 (assets/level2/*)
   const bg2 = new Image();     bg2.src = "assets/level2/bg_loop.png";
   const bird2 = new Image();   bird2.src = "assets/level2/bird.png";
   const trash2 = new Image();  trash2.src = "assets/level2/trash.png";
   const ball2 = new Image();   ball2.src = "assets/level2/ball.png";
-  const final2 = "assets/level2/final.mp4"; // varsa kullan, yoksa yine de hata vermez (sadece yüklenmez)
 
   // Shield (aynı)
   const shieldImg = new Image(); shieldImg.src = "assets/shield.png";
@@ -184,12 +182,14 @@
   const JUMP_V = -10.2;
 
   // ---------- Levels config ----------
+  let obstacles = []; // level spawn bunu kullanacak
+
   const levels = {
     1: {
       id: 1,
       name: "Bölüm 1 — Beşiktaş",
       bg: bg1,
-      finalSrc: final1,
+      finalSrc: "assets/final.mp4",
       hint: "Engeller: Kağıt + Kitap",
       quizzes: [
         { q:"Yusuf bu dönem girdiği 3 sınavdan kaçını geçmiştir?", options:["0","1","2","3"], correct:2 },
@@ -236,7 +236,7 @@
       id: 2,
       name: "Bölüm 2 — Park",
       bg: bg2,
-      finalSrc: final2,
+      finalSrc: "assets/level2/final.mp4",
       hint: "Engeller: Kuş + Çöp + Top",
       quizzes: [
         { q:"Parkta Yusuf’un önüne en çok ne çıkar?", options:["Kuş","Çöp kutusu","Top","Hepsi"], correct:3 },
@@ -273,7 +273,7 @@
             colH: h - 12
           });
         } else {
-          // ⚽ TOP (küçük)
+          // ⚽ TOP
           const w = 28, h = 28;
           obstacles.push({
             img: ball2,
@@ -294,27 +294,6 @@
   let currentLevel = 1;
   let level = levels[currentLevel];
 
-  function loadLevel(n){
-    currentLevel = Math.max(1, Math.min(MAX_LEVEL, n));
-    level = levels[currentLevel];
-
-    // video
-    finalVid.pause();
-    finalVid.currentTime = 0;
-    finalVid.src = level.finalSrc;
-    finalVid.load();
-
-    // quiz
-    quizzes = level.quizzes;
-    quizIndex = 0;
-
-    // ekran metinleri
-    document.title = `Yusuf Runner - ${level.name}`;
-
-    // reset background scroll
-    bgX = 0;
-  }
-
   // ---------- State ----------
   let state = "start"; // start | run | quiz | final | gameover
   let speed = 2.8;
@@ -328,7 +307,6 @@
     invul: 0
   };
 
-  let obstacles = [];
   let nextSpawn = 40;
 
   let shieldDrops = [];
@@ -340,6 +318,27 @@
   // Quiz (dinamik)
   let quizzes = levels[1].quizzes;
   let quizIndex = 0;
+
+  function loadLevel(n){
+    currentLevel = Math.max(1, Math.min(MAX_LEVEL, n));
+    level = levels[currentLevel];
+
+    // final video kaynağı
+    finalVid.pause();
+    finalVid.currentTime = 0;
+    finalVid.src = level.finalSrc;
+    finalVid.load();
+
+    // quiz seti
+    quizzes = level.quizzes;
+    quizIndex = 0;
+
+    // title
+    document.title = `Yusuf Runner - ${level.name}`;
+
+    // reset background scroll
+    bgX = 0;
+  }
 
   // ---------- Utils ----------
   function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
@@ -356,18 +355,19 @@
   // ---------- Controls ----------
   function onTap(){
     if(state === "final"){
-      // finalden çık: bir sonraki bölüme geç
+      // finalden çık: bir sonraki level'a geç
       finalVid.pause();
       finalVid.currentTime = 0;
 
       if(currentLevel < MAX_LEVEL){
         loadLevel(currentLevel + 1);
-        state = "start"; // sonraki bölümün start ekranı
-        showToast(`➡️ ${levels[currentLevel].name}`);
+        state = "start";
+        showToast(`➡️ ${level.name}`);
       } else {
-        // tüm bölümler bitti -> başa
+        // hepsi bitti -> başa dön
         loadLevel(1);
         state = "start";
+        showToast("🏁 Baştan!");
       }
       return;
     }
@@ -558,7 +558,6 @@
 
   // ---------- Spawning ----------
   function spawnObstacle(){
-    // Level'e göre spawn
     level.spawnObstacle();
   }
 
@@ -707,7 +706,7 @@
     nextSpawn -= dt * 60;
     if(nextSpawn <= 0){
       spawnObstacle();
-      const base = rand(45, 85);
+      const base = Math.random() * (85-45) + 45;
       nextSpawn = clamp((base / (1 + (speed-2.8)*0.25)), 28, 95);
     }
 
