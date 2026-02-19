@@ -451,23 +451,24 @@ Her bölüm ayrı bir anı. 💚
     if(endLocked) return;
 
     if(state === "final"){
-      // ✅ 3. bölüm finalinde dokununca kapanış notu aç + müziği BAŞLAT
       if(currentLevel === 3){
         endLocked = true;
-
-        // İstersen bunu kullan: END_NOTE_TITLE / END_NOTE_TEXT
-        // ama sen HTML'de uzun metni zaten yazmışsın; gene de güvenli kalsın
-
         endOverlay.style.display = "flex";
-
-        // ✅ SADECE BURADA ÇAL
+    
+        // ✅ GARANTİ ÇALDIR (BU TIKLAMANIN İÇİNDE)
         try{
+          finalMusic.pause();              // bazen iOS takılıyor, önce durdur
           finalMusic.currentTime = 0;
-          finalMusic.play().catch(()=>{});
+          finalMusic.muted = false;
+          finalMusic.volume = 0.9;
+          finalMusic.play();
         }catch(e){}
-
+    
         return;
       }
+    
+    }
+
 
       // level 1-2: normal devam
       finalVid.pause();
