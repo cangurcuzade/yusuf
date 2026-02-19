@@ -290,7 +290,7 @@
 
         const dx = (player.x + SPRITE_OX) | 0;
         // ✅ ayakları zemine kilitle
-        const dy = (GROUND_Y - dh + SPRITE_OY) | 0;
+        const dy = (player.y + player.h - dh + SPRITE_OY) | 0; // zıpladıkça sprite da yükselir
 
         ctx.drawImage(img, dx, dy, dw, dh);
       }
