@@ -92,7 +92,7 @@
 
   const W = canvas.width, H = canvas.height;
 
-  // ---------- Assets (Level 1 + Level 2) ----------
+  // ---------- Assets (Level 1 + Level 2 + Level 3) ----------
   // Level 1
   const bg1 = new Image();     bg1.src = "assets/bg_loop.png";
   const paper1 = new Image();  paper1.src = "assets/paper.png";
@@ -105,7 +105,11 @@
   const trash2 = new Image();  trash2.src = "assets/level2/trash.png";
   const ball2 = new Image();   ball2.src = "assets/level2/ball.png";
 
-  // Shield (aynı)
+  // Level 3 (assets/level3/*) — ✅ 2 engel (puddle yok)
+  const cone3  = new Image();  cone3.src  = "assets/level3/cone.png";
+  const crate3 = new Image();  crate3.src = "assets/level3/crate.png";
+
+  // Shield
   const shieldImg = new Image(); shieldImg.src = "assets/shield.png";
 
   // ✅ FINAL MP4 (dinamik level)
@@ -168,7 +172,7 @@
   const SPRITE_OX = -6;
   const SPRITE_OY = -2;
 
-  // ✅ Yusuf hitbox (kafaya doğru uzatılmış)
+  // ✅ Yusuf hitbox
   const HB_OX = 10;
   const HB_OY = -2;
   const HB_W  = 18;
@@ -182,7 +186,7 @@
   const JUMP_V = -10.2;
 
   // ---------- Levels config ----------
-  let obstacles = []; // level spawn bunu kullanacak
+  let obstacles = [];
 
   const levels = {
     1: {
@@ -198,35 +202,25 @@
       ],
       spawnObstacle(){
         const r = Math.random();
-
         if(r < 0.45){
-          // KAĞIT
           const w = 40, h = 32;
           obstacles.push({
             img: paper1,
             x: W + 20,
             y: (GROUND_Y - 110 - Math.random()*45) | 0,
             w, h,
-            colOX: 8,
-            colOY: 6,
-            colW: w - 16,
-            colH: h - 12
+            colOX: 8, colOY: 6, colW: w - 16, colH: h - 12
           });
         } else {
-          // KİTAPLAR
           const img = Math.random() < 0.5 ? book1a : book1b;
           const w = 44;
           const h = (img === book1a) ? 28 : 40;
-
           obstacles.push({
             img,
             x: W + 20,
             y: GROUND_Y - h,
             w, h,
-            colOX: 7,
-            colOY: 6,
-            colW: w - 14,
-            colH: h - 12
+            colOX: 7, colOY: 6, colW: w - 14, colH: h - 12
           });
         }
       }
@@ -239,58 +233,85 @@
       finalSrc: "assets/level2/final.mp4",
       hint: "Engeller: Kuş + Çöp + Top",
       quizzes: [
-        { q:"Parkta Yusuf’un önüne en çok ne çıkar?", options:["Kuş","Çöp kutusu","Top","Hepsi"], correct:3 },
-        { q:"Kuş engeli hangi yükseklikte gelir?", options:["Yerde","Havada","Denizde","Çatıda"], correct:1 },
-        { q:"Park bölümünde hedef ne?", options:["Koşmaya devam","Bankta uyumak","Balık tutmak","Kaybolmak"], correct:0 },
+        { q:"Kirpiler ne sever?", options:["Elma","Sarışın","Çay","Haşlanmış yumurta"], correct:3 },
+        { q:"Yusuf Can'ın ağzına ne vermemiştir?", options:["Pizza","Kebap","Makarna","Bueno"], correct:1 },
+        { q:"Yusuf Can'nın hangi sınavına girmiştir?", options:["Fizik","Psikoloji","Girişimcilik","Matematik"], correct:2 },
       ],
       spawnObstacle(){
         const r = Math.random();
-
         if(r < 0.40){
-          // 🐦 KUŞ (havada) — ✅ daha alçak bant
           const w = 38, h = 28;
           obstacles.push({
             img: bird2,
             x: W + 20,
-            y: (GROUND_Y - 115 - Math.random()*55) | 0, // ✅ alçaltıldı
+            y: (GROUND_Y - 115 - Math.random()*55) | 0,
             w, h,
-            colOX: 6,
-            colOY: 6,
-            colW: w - 12,
-            colH: h - 12
+            colOX: 6, colOY: 6, colW: w - 12, colH: h - 12
           });
         } else if(r < 0.75){
-          // 🗑️ ÇÖP (yerde)
           const w = 42, h = 44;
           obstacles.push({
             img: trash2,
             x: W + 20,
             y: GROUND_Y - h,
             w, h,
-            colOX: 8,
-            colOY: 8,
-            colW: w - 16,
-            colH: h - 12
+            colOX: 8, colOY: 8, colW: w - 16, colH: h - 12
           });
         } else {
-          // ⚽ TOP — ✅ biraz büyütüldü
           const w = 34, h = 34;
           obstacles.push({
             img: ball2,
             x: W + 20,
             y: GROUND_Y - h,
             w, h,
-            colOX: 6,
-            colOY: 6,
-            colW: w - 12,
-            colH: h - 12
+            colOX: 6, colOY: 6, colW: w - 12, colH: h - 12
+          });
+        }
+      }
+    },
+
+    3: {
+      id: 3,
+      name: "Bölüm 3 — Sokak",
+      bg: bg1, // ✅ Level 1 ile aynı bg
+      finalSrc: "assets/level3/final.mp4",
+      hint: "Engeller: Koni + Kasa",
+      quizzes: [
+        { q:"Çamlıca Market şube hangi ayda açıldı?", options:["Temmuz","Haziran","Ağustos","Eylül"], correct:2 },
+        { q:"Kedi Yusuf'a ne dedi?", options:["Hoşt!","Sg","Pişt!","Gider misin kardeşim!"], correct:2 },
+        { q:"Can bunu yaparken yoruldu mu?", options:["çok","yok","az","(cevap a)"], correct:0 },
+      ],
+      spawnObstacle(){
+        const r = Math.random();
+
+        if(r < 0.55){
+          // 🚧 KONİ
+          const w = 36, h = 42;
+          obstacles.push({
+            img: cone3,
+            x: W + 20,
+            y: GROUND_Y - h,
+            w, h,
+            colOX: 8, colOY: 8,
+            colW: w - 16, colH: h - 10
+          });
+        } else {
+          // 📦 KASA
+          const w = 52, h = 40;
+          obstacles.push({
+            img: crate3,
+            x: W + 20,
+            y: GROUND_Y - h,
+            w, h,
+            colOX: 8, colOY: 8,
+            colW: w - 16, colH: h - 12
           });
         }
       }
     }
   };
 
-  const MAX_LEVEL = 2;
+  const MAX_LEVEL = 3;
   let currentLevel = 1;
   let level = levels[currentLevel];
 
@@ -315,7 +336,7 @@
   let elapsed = 0;
   const LEVEL_SECONDS = 45;
 
-  // Quiz (dinamik)
+  // Quiz
   let quizzes = levels[1].quizzes;
   let quizIndex = 0;
 
@@ -323,20 +344,15 @@
     currentLevel = Math.max(1, Math.min(MAX_LEVEL, n));
     level = levels[currentLevel];
 
-    // final video kaynağı
     finalVid.pause();
     finalVid.currentTime = 0;
     finalVid.src = level.finalSrc;
     finalVid.load();
 
-    // quiz seti
     quizzes = level.quizzes;
     quizIndex = 0;
 
-    // title
     document.title = `Yusuf Runner - ${level.name}`;
-
-    // reset background scroll
     bgX = 0;
   }
 
@@ -355,7 +371,6 @@
   // ---------- Controls ----------
   function onTap(){
     if(state === "final"){
-      // finalden çık: bir sonraki level'a geç
       finalVid.pause();
       finalVid.currentTime = 0;
 
@@ -364,7 +379,6 @@
         state = "start";
         showToast(`➡️ ${level.name}`);
       } else {
-        // hepsi bitti -> başa dön
         loadLevel(1);
         state = "start";
         showToast("🏁 Baştan!");
@@ -405,9 +419,9 @@
     }
   }
 
-  // ✅ FINAL / MEDIA COVER helper (kenar boşlukları yok)
+  // ✅ Final cover helper
   function drawCoverMedia(media, mw, mh){
-    const scale = Math.max(W / mw, H / mh); // ✅ cover
+    const scale = Math.max(W / mw, H / mh);
     const dw = mw * scale;
     const dh = mh * scale;
     const dx = (W - dw) / 2;
@@ -449,7 +463,6 @@
         const dx = (player.x + SPRITE_OX) | 0;
         const dy = (player.y + player.h - dh + SPRITE_OY) | 0;
 
-        // ✅ Kalkan ışıltısı (sprite'a uyarlı)
         if(player.shield){
           ctx.save();
           ctx.globalAlpha = 0.35;
@@ -514,7 +527,6 @@
 
   function drawFinal(){
     if(finalVid.readyState >= 2){
-      // ✅ cover çizim: sağ/sol ince boşluk kalmaz
       drawCoverMedia(finalVid, finalVid.videoWidth, finalVid.videoHeight);
     } else {
       ctx.fillStyle="#000";
@@ -564,9 +576,7 @@
   }
 
   // ---------- Spawning ----------
-  function spawnObstacle(){
-    level.spawnObstacle();
-  }
+  function spawnObstacle(){ level.spawnObstacle(); }
 
   function spawnShield(){
     const size = 22;
@@ -591,9 +601,7 @@
     });
   }
 
-  function closeQuiz(){
-    overlay.style.display = "none";
-  }
+  function closeQuiz(){ overlay.style.display = "none"; }
 
   optBtns.forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -725,7 +733,6 @@
 
     speed += 0.0009 * (dt * 60);
 
-    // ✅ Yusuf hitbox
     const pRect = {
       x: player.x + HB_OX,
       y: player.y + HB_OY,
