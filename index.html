@@ -58,6 +58,27 @@
       max-width:92vw;
       text-align:center;
     }
+
+    /* ✅ KAPANIŞ NOTU (ASLA KAPANMAZ) */
+    #endOverlay{
+      position:fixed; inset:0; display:none;
+      background:rgba(0,0,0,.78);
+      align-items:center; justify-content:center;
+      padding:18px;
+      z-index:9999;
+    }
+    #endCard{
+      width:min(560px, 92vw);
+      background:#111826;
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:18px;
+      padding:18px;
+      box-shadow:0 18px 60px rgba(0,0,0,.6);
+      text-align:center;
+    }
+    #endTop{ font-size:13px; opacity:.8; margin-bottom:6px; color:#eaf1ff; }
+    #endTitle{ font-size:20px; line-height:1.2; margin-bottom:10px; color:#eaf1ff; }
+    #endText{ font-size:15px; line-height:1.35; opacity:.92; color:#eaf1ff; white-space:pre-line; }
   </style>
 </head>
 <body>
@@ -79,6 +100,15 @@
 
 <div id="toast"></div>
 
+<!-- ✅ KAPANIŞ NOTU OVERLAY -->
+<div id="endOverlay">
+  <div id="endCard">
+    <div id="endTop">Yusuf Runner</div>
+    <div id="endTitle">İyi ki doğdun Yusuf! 🎂</div>
+    <div id="endText">Bu siteyi senin için yaptım.\nHer bölüm ayrı bir anı. 💚</div>
+  </div>
+</div>
+
 <script>
 (() => {
   const canvas = document.getElementById('c');
@@ -89,6 +119,16 @@
   const qtext = document.getElementById('qtext');
   const optBtns = Array.from(document.querySelectorAll('.opt'));
   const toast = document.getElementById('toast');
+
+  // ✅ Kapanış overlay refs
+  const endOverlay = document.getElementById('endOverlay');
+  const endTitle = document.getElementById('endTitle');
+  const endText  = document.getElementById('endText');
+
+  // Kapanış metni (istediğin gibi değiştir)
+  const END_NOTE_TITLE = "İyi ki doğdun Yusuf! 🎂";
+  const END_NOTE_TEXT  = "Bu siteyi senin için yaptım.\nHer bölüm ayrı bir anı. 💚";
+  let endLocked = false; // ✅ bir kez açılınca oyun kilit
 
   const W = canvas.width, H = canvas.height;
 
@@ -105,14 +145,14 @@
   const trash2 = new Image();  trash2.src = "assets/level2/trash.png";
   const ball2 = new Image();   ball2.src = "assets/level2/ball.png";
 
-  // Level 3 (assets/level3/*) — ✅ 2 engel (puddle yok)
+  // Level 3 (assets/level3/*)
   const cone3  = new Image();  cone3.src  = "assets/level3/cone.png";
   const crate3 = new Image();  crate3.src = "assets/level3/crate.png";
 
   // Shield
   const shieldImg = new Image(); shieldImg.src = "assets/shield.png";
 
-  // ✅ FINAL MP4 (dinamik level)
+  // ✅ FINAL MP4
   const finalVid = document.createElement("video");
   finalVid.loop = true;
   finalVid.muted = true;
@@ -121,7 +161,7 @@
 
   function ready(img){ return img && img.complete && img.naturalWidth > 0; }
 
-  // ---------- RUN SPRITE (193 frame) ----------
+  // ---------- RUN SPRITE ----------
   const RUN_DIR = "assets/run_frames";
   const RUN_TOTAL = 193;
   const RUN_INTRO_END = 5;
@@ -273,7 +313,7 @@
     3: {
       id: 3,
       name: "Bölüm 3 — Sokak",
-      bg: bg1, // ✅ Level 1 ile aynı bg
+      bg: bg1,
       finalSrc: "assets/level3/final.mp4",
       hint: "Engeller: Koni + Kasa",
       quizzes: [
@@ -283,9 +323,7 @@
       ],
       spawnObstacle(){
         const r = Math.random();
-
         if(r < 0.55){
-          // 🚧 KONİ
           const w = 36, h = 42;
           obstacles.push({
             img: cone3,
@@ -296,7 +334,6 @@
             colW: w - 16, colH: h - 10
           });
         } else {
-          // 📦 KASA
           const w = 52, h = 40;
           obstacles.push({
             img: crate3,
@@ -354,6 +391,10 @@
 
     document.title = `Yusuf Runner - ${level.name}`;
     bgX = 0;
+
+    // ✅ Level değişince kapanış kilidini sıfırla (ama kapanış açıldıysa zaten oyun bitecek)
+    endLocked = false;
+    endOverlay.style.display = "none";
   }
 
   // ---------- Utils ----------
@@ -370,7 +411,20 @@
 
   // ---------- Controls ----------
   function onTap(){
+    // ✅ Kapanış açıldıysa hiçbir şey yapma (asla kapanmasın)
+    if(endLocked) return;
+
     if(state === "final"){
+      // ✅ 3. bölüm finalinde dokununca kapanış notu aç ve oyun burada bitsin
+      if(currentLevel === 3){
+        endLocked = true;
+        endTitle.textContent = END_NOTE_TITLE;
+        endText.textContent  = END_NOTE_TEXT;
+        endOverlay.style.display = "flex";
+        return;
+      }
+
+      // level 1-2: normal devam
       finalVid.pause();
       finalVid.currentTime = 0;
 
@@ -633,6 +687,9 @@
 
   // ---------- Game flow ----------
   function startGame(){
+    // ✅ kapanış kilidini kırma: kapanış açıldıysa oyun bitmiş demek
+    if(endLocked) return;
+
     state = "run";
     elapsed = 0;
     speed = 2.8;
